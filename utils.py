@@ -7,6 +7,7 @@ import imageio
 
 # Function to get the metadata dictionary for the dataset
 def get_dict(path, include_augmentations=False):
+
     # Create dictionary
     d = {
         'ids': 
@@ -28,7 +29,6 @@ def get_dict(path, include_augmentations=False):
     filepaths_images_train = get_files(path_images_train)
     filepaths_images_test = get_files(path_images_test)
     filepaths_masks_train = get_files(path_masks_train)
-    
 
     # Get ids and fill the dictionary
     for filepath in filepaths_images_train:
@@ -143,4 +143,3 @@ def save_array_as_image(arr, path):
         return
 
     imageio.imwrite(path, arr)
-    
