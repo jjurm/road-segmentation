@@ -3,3 +3,5 @@ ipywidgets
 torch
 googlemaps
 scikit-image
+polyline
+pyproj
