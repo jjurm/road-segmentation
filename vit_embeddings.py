@@ -11,7 +11,7 @@ from torch import nn
 from torch.nn.functional import conv2d
 from torchvision import transforms
 from tqdm import tqdm
-from transformers import ViTFeatureExtractor, ViTMAEForPreTraining, ViTMAEModel
+from transformers import ViTFeatureExtractor, ViTMAEForPreTraining
 from transformers.models.vit_mae.modeling_vit_mae import to_2tuple, get_2d_sincos_pos_embed
 
 
@@ -25,11 +25,11 @@ def get_embeddings(image, feature_extractor, model):
     image = image.convert('RGB')
 
     # compute outputs of encoder
-    inputs = feature_extractor(images=image, return_tensors='pt')
-    outputs = model(**inputs)
+    inputs = feature_extractor(images=image, return_tensors='pt').pixel_values
+    outputs = model(inputs)
 
     # remove CLS token 
-    output_seq = outputs.last_hidden_state[:, 1:, :]
+    output_seq = outputs[:, 1:, :]
     #print(output_seq.shape)
 
     n_batches, n_patches, n_channels = output_seq.size()
@@ -40,7 +40,7 @@ def get_embeddings(image, feature_extractor, model):
     return output_seq.detach().numpy()
 
 
-def get_labels(mask):
+def get_labels(mask, patch_size=16):
 
     # convert mask to black/white
     mask = transforms.ToTensor()(mask.convert('1'))
@@ -48,7 +48,6 @@ def get_labels(mask):
     # perform same flattening from 2D to seq, as here
     # https://github.com/huggingface/transformers/blob/main/src/transformers/models/vit/modeling_vit.py#L190
 
-    patch_size = 16 
     kernel = torch.ones([1, 1, patch_size, patch_size])
     
     ratios = conv2d(input=mask, weight=kernel, stride=patch_size) / (patch_size**2)
@@ -57,10 +56,31 @@ def get_labels(mask):
     return label_seq.numpy()
 
 
-def load_model(model_str, image_size=400, encoder_only=True):
+def load_model(model_str, image_size=400, mae_encoder_only=True):
 
-    if model_str[:7] == 'vit-mae':
-        feature_extractor = ViTFeatureExtractor(do_resize=True, image_size=image_size)
+    supported_models='''
+    - DINO: dino_vits16, dino_vits8, dino_vitb16, dino_vitb8, dino_xcit_small_12_p16, dino_xcit_small_12_p8, dino_xcit_medium_24_p16, dino_xcit_medium_24_p8
+    - MAE: vit-mae-base, vit-mae-large, vit-mae-huge
+    '''
+
+    feature_extractor = ViTFeatureExtractor(do_resize=True, size=image_size)
+    
+    if model_str[:4] == 'dino':
+        model = torch.hub.load('facebookresearch/dino:main', model_str)
+
+        # adjust from here:
+        # https://github.com/facebookresearch/dino/blob/cb711401860da580817918b9167ed73e3eef3dcf/vision_transformer.py#L209
+        def forward(x):
+            x = model.prepare_tokens(x)
+            for blk in model.blocks:
+                x = blk(x)
+            x = model.norm(x)
+            return x
+
+        model.forward = forward
+
+
+    elif model_str[:7] == 'vit-mae':
 
         # This does not work: weights are intitiallized randomly     
         # model = ViTMAEModel.from_pretrained(f'facebook/{model_str}', image_size=image_size, mask_ratio=0)
@@ -105,12 +125,22 @@ def load_model(model_str, image_size=400, encoder_only=True):
             int(num_patches**0.5), add_cls_token=True)
         model.decoder.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
-        if encoder_only:
+        if mae_encoder_only:
             model = model.vit
 
-        return feature_extractor, model
+
+        # change foward to directly extract model outputs
+        old_forward = model.forward
+        def forward(x):
+            return old_forward(x).last_hidden_state
+        model.forward = forward
+
     else:
-        raise RuntimeError('unkown model string')
+        raise RuntimeError('Unkown model string. Supported models are:' + supported_models)
+    
+    model.name = model_str
+    return feature_extractor, model
+
 
 def get_dataindices(datapath, dataset, dataprefix):
     image_str = os.path.join(datapath, dataset, 'images', f'{dataprefix}_*.png')
@@ -134,9 +164,10 @@ def convert_dataset(datapath, dataset, dataprefix, model_str, image_size=400):
         image = Image.open(os.path.join(image_path, f'{dataprefix}_{idx}.png'))
         embs.append(get_embeddings(image, feature_extractor, model))
     
-    # gather embedings into dataframe
+    # gather embedings into dataframe and keep image index
     embs = np.concatenate(embs)
     df = pd.DataFrame(embs, columns=[f'x{x}' for x in range(embs.shape[1])])
+    df.insert(0, 'img', np.array(indices).repeat(df.shape[0]//len(indices)))
     
     if dataset == 'training':
         print('Compute ratios...')
