@@ -61,6 +61,10 @@ class BaseModel(pl.LightningModule):
         
         return out
 
+    #def validation_step(self, batch):
+    #    out = self.training_step(batch)
+    #    return {(f'val_{k}', v) for (k,v) in out.items()}
+
     def predict_step(self, batch):
         probas = self(batch)
         n_samples, height, width = probas.shape

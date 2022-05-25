@@ -15,7 +15,6 @@ import pprint
 
 import torch
 
-
 class Constants(object):
     '''
     This is a singleton.
@@ -31,12 +30,12 @@ class Constants(object):
             # Get directories from os.environ
             try: 
                 self.DATA_DIR = os.environ['CIL_DATA']
-                self.EXPERIMENT_DIR = os.environ['CIL_EXPERIMENTS']
+                self.RESULTS_DIR = os.environ['CIL_RESULTS']
             except KeyError:
                 raise RuntimeError(
                     '''Please configure the environment variables: 
                     - CIL_DATA: path to datasets
-                    - CIL_EXPERIMENTS: path to store results''')
+                    - CIL_RESULTS: path to store results''')
 
             # Set C.DEVICE
             if torch.cuda.is_available():
@@ -100,13 +99,13 @@ class Configuration(object):
 
         # Model.
         model = parser.add_argument_group('Model')
-        model.add_argument('--model', type=str, default=None, 
+        model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
-        model.add_argument('--model_out', type=str, choices={'pixels', 'patches'},
+        model.add_argument('--model_out', type=str, choices={'pixels', 'patches'}, default='pixels',
                             help='Output features of model. Some models might not support pixels.')
-        model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'},
+        model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'}, default='patches',
                             help='Input features of loss. Pixel activations are automatically transformed to patches.')
-        model.add_argument('--loss', type=str, choices={'bce', 'bce'}, default='bce', 
+        model.add_argument('--loss', type=str, choices={'bce'}, default='bce', 
                             help='Type of loss for training.')
 
         
@@ -191,15 +190,15 @@ def create_model(config:Configuration):
     This is a helper function that can be useful if you have several model definitions that you want to
     choose from via the command line.
     '''
-    if config.name == 'LinearFC':
+    if config.model == 'LinearFC':
         from models.LinearFC import LinearFC
         return LinearFC(config)
 
-    if config.name == 'LinearConv':
+    if config.model == 'LinearConv':
         from models.LinearConv import LinearConv
         return LinearConv(config)
     
-    if config.name == 'UNet':
+    if config.model == 'UNet':
         from models.UNet import UNet
         return UNet(config)
 

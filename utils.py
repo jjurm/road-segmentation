@@ -24,10 +24,10 @@ def create_log_dir(config:Configuration):
     '''
 
     id = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
-    log_dir = os.path.join(C.EXPERIMENT_DIR, f'{id}--{config.name}')
+    log_dir = os.path.join(C.RESULTS_DIR, f'{id}--{config.model}')
 
     # make experiments directory
-    os.makedirs(C.EXPERIMENT_DIR, exist_ok=True)
+    os.makedirs(C.RESULTS_DIR, exist_ok=True)
 
     if os.path.exists(log_dir):
         raise ValueError('Logging directory already exists {}'.format(log_dir))
@@ -39,7 +39,7 @@ def create_log_dir(config:Configuration):
 def export_cmd(fname):
     '''Stores command to a .txt file.'''
     if not fname.endswith('.txt'):
-        output_file += '.txt'
+        fname += '.txt'
 
     cmd = ' '.join(sys.argv)
     with open(fname, 'w') as f:
@@ -51,7 +51,7 @@ def export_code(fname):
     if not fname.endswith('.zip'):
         fname += '.zip'
 
-    code_files = glob.glob('./*.py', recursive=True)
+    code_files = glob('./*.py', recursive=True)
     zipf = zipfile.ZipFile(fname, mode='w', compression=zipfile.ZIP_DEFLATED)
     for f in code_files:
         zipf.write(f)
@@ -63,18 +63,19 @@ def count_parameters(net):
     return sum(p.numel() for p in net.parameters() if p.requires_grad)
 
 
-def get_dataindices(wildcard:str):
-    '''
-    Get indices from numbered files specifed by wildcard filname.
+def get_filenames(dataset, subdir):
+    '''Get datafiles from dataset subdirectory.'''
 
-    Args:
-        wildcard: A filname with wildcard e.g. 'img*.png'.
+    fname = os.path.join(C.DATA_DIR, dataset)
+    if not os.path.exists(fname):
+        raise RuntimeError(f'Dataset does not exist: {fname}')
     
-    Returns:
-        List[int]: The list of indices.
-    '''
-    indices = [int(re.findall(r'\d+', f)[-1]) for f in glob(wildcard)]
-    return indices
+    fname = os.path.join(fname, subdir)
+    if not os.path.exists(fname):
+        raise RuntimeError(f'Subdirectory does not exist: {fname}')
+        
+    fname = os.path.join(fname, '*.png')
+    return sorted(glob(fname))
 
 
 class Pix2Patch(torch.nn.Module):

@@ -4,7 +4,7 @@ from configuration import Configuration
 from torch import nn
 from torch.nn import functional as F
 
-from BaseModel import BaseModel
+from models.BaseModel import BaseModel
 
 
 class LinearFC(BaseModel):
