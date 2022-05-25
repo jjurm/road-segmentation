@@ -5,14 +5,13 @@ Also define a configuration object whose parameters can be set via the command l
 json file. Here you can add more configuration parameters that should be exposed via the command line. In the code,
 you can access them via `config.your_parameter`. All parameters are automatically saved to disk in JSON format.
 
+Copyright ETH Zurich, Manuel Kaufmann & Felix Sarnthein
+
 '''
 import argparse
-from ast import Str
-from distutils.command.config import config
 import json
 import os
 import pprint
-import sys
 
 import torch
 
@@ -25,6 +24,9 @@ class Constants(object):
         def __init__(self):
             # Environment setup.
             self.DTYPE = torch.float32
+            self.IMG_SIZE = 400
+            self.PATCH_SIZE = 16
+            self.THRESHOLD = 0.25
             
             # Get directories from os.environ
             try: 
@@ -64,7 +66,7 @@ CONSTANTS = Constants()
 class Configuration(object):
     '''Configuration parameters exposed via the commandline.'''
 
-    def __init__(self, adict):
+    def __init__(self, adict:dict):
         self.__dict__.update(adict)
 
     def __str__(self):
@@ -88,8 +90,6 @@ class Configuration(object):
                             help='Evaluate validation set every so many iters.')
         general.add_argument('--seed', type=int, default=0,
                             help='Random number generator seed.')
-        general.add_argument('--model', type=str, default=None, 
-                            help='Defines the model to train on.')
 
         # Data.
         data = parser.add_argument_group('Data')
@@ -97,17 +97,23 @@ class Configuration(object):
                             help='Batch size for the training set.')
         data.add_argument('--bs_eval', type=int, default=16, 
                             help='Batch size for valid/test set.')
-        data.add_argument('--train_lbls', type=str, choices={'per_pixel', 'per_patch'},
-                            help='Load training labels as per-pixel or as per-patch maps')
-        data.add_argument('--eval_lbls', type=str, choices={'per_pixel', 'per_patch'},
-                            help='Load validation labels as per-pixel or as per-patch maps')
+
+        # Model.
+        model = parser.add_argument_group('Model')
+        model.add_argument('--model', type=str, default=None, 
+                            help='Defines the model to train on.')
+        model.add_argument('--model_out', type=str, choices={'pixels', 'patches'},
+                            help='Output features of model. Some models might not support pixels.')
+        model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'},
+                            help='Input features of loss. Pixel activations are automatically transformed to patches.')
+        model.add_argument('--loss', type=str, choices={'bce', 'bce'}, default='bce', 
+                            help='Type of loss for training.')
+
         
         # Training configurations.        
         training = parser.add_argument_group('Training')
         training.add_argument('--n_epochs', type=int, default=50, 
                             help='Number of epochs to train for.')
-        training.add_argument('--loss', type=str, choices={'bce', 'dice'}, default='bc', 
-                            help='Type of loss for training.')
         training.add_argument('--opt', type=str, choices={'adam', 'sgd'}, default='adam', 
                             help='Optimizer to use for training.')
         training.add_argument('--lr', type=float, default=0.001, 
@@ -122,7 +128,7 @@ class Configuration(object):
         return Configuration(vars(defaults))
 
     @staticmethod
-    def from_json(json_path, default_config=None):
+    def from_json(json_path:str, default_config=None):
         '''Load configurations from a JSON file.'''
 
         # Get default configuration
@@ -131,10 +137,7 @@ class Configuration(object):
 
         # Load configuration from json file
         with open(json_path, 'r') as f:
-            json_config = json.load(f)
-
-        # remove start command from json
-        json_config.pop('start_command', None) 
+            json_config = json.load(f) 
 
         # Overwrite defaults
         default_config.update(json_config)
@@ -170,16 +173,59 @@ class Configuration(object):
         # 3. Overwrite JSON config with remaining cmd args
         parser.parse_args(remaining_argv, config)
 
-        # add start command to config
-        config.start_command = ' '.join(sys.argv)
         return config
 
 
-    def to_json(self, json_path):
+    def to_json(self, json_path:str):
         '''Dump configurations to a JSON file.'''
         with open(json_path, 'w') as f:
             s = json.dumps(vars(self), indent=2)
             f.write(s)
 
-    def update(self, adict):
+    def update(self, adict:dict):
         self.__dict__.update(adict)
+
+
+def create_model(config:Configuration):
+    '''
+    This is a helper function that can be useful if you have several model definitions that you want to
+    choose from via the command line.
+    '''
+    if config.name == 'LinearFC':
+        from models.LinearFC import LinearFC
+        return LinearFC(config)
+
+    if config.name == 'LinearConv':
+        from models.LinearConv import LinearConv
+        return LinearConv(config)
+    
+    if config.name == 'UNet':
+        from models.UNet import UNet
+        return UNet(config)
+
+    raise RuntimeError('Unkown model name.')
+
+
+def create_loss(config:Configuration):
+    '''
+    This is a helper function that can be useful if you have losses that you want to
+    choose from via the command line.
+    '''
+    if config.loss == 'bce':
+        return torch.nn.BCELoss()
+
+    raise RuntimeError('Unkown loss name.')
+
+
+def create_optimizer(model:torch.nn.Module, config:Configuration):
+    '''
+    This is a helper function that can be useful if you have optimizers that you want to
+    choose from via the command line.
+    '''
+    if config.opt == 'adam':
+        return torch.optim.Adam(model.parameters(), lr=config.lr)
+
+    if config.opt == 'sgd':
+        return torch.optim.SGD(model.parameters(), lr=config.lr)
+
+    raise RuntimeError('Unkown optimizer name.')
