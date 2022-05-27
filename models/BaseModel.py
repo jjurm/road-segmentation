@@ -38,8 +38,7 @@ class BaseModel(pl.LightningModule):
         raise NotImplementedError("Must be implemented by subclass.")
         return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
 
-
-    def training_step(self, batch:dict, batch_idx):
+    def step(self, batch:dict, batch_idx):
         images = batch['image']
         targets = batch['mask']
 
@@ -77,10 +76,16 @@ class BaseModel(pl.LightningModule):
         
         return out
 
+    def training_step(self, batch:dict, batch_idx):
+        out = self.step(batch, batch_idx)
+        self.log_dict(out)
+        return out
 
     def validation_step(self, batch:dict, batch_idx):
-        out = self.training_step(batch, batch_idx)
-        return {(f'val_{k}', v) for (k,v) in out.items()}
+        out = self.step(batch, batch_idx)
+        out = {(f'val_{k}', v) for (k,v) in out.items()}
+        self.log_dict(out)
+        return out
 
 
     def predict_step(self, batch:dict, batch_idx):
