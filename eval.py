@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 
 def main(config:Configuration, logdir:str):
-    # This is just a very first draft...
+    # This is just a very first draft and still under construction...
     # Needs to be checked and debugged
     # TODO: 
     # - Set seed from config?

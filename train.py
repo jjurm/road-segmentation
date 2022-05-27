@@ -28,7 +28,7 @@ def main(config:Configuration):
 
     # Create a logger and checkpoint file for the best model.
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
-    checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, name='model.pth', monitor='val_loss')
+    checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, filename='model.pth', monitor='val_loss')
 
     # Create model on correct device
     model = create_model(config).to(C.DEVICE)
