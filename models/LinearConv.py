@@ -29,11 +29,10 @@ class LinearConv(BaseModel):
                               stride=self.kernel_size)
 
     def forward(self, batch:torch.Tensor):
-        n_samples, n_channels, height, width = batch.shape
-
+        n_samples, n_channels, in_size, in_size = batch.shape
         # forward through linear conv layer
         batch = self.conv(batch)
-        batch = F.sigmoid(batch)
+        batch = torch.sigmoid(batch)
 
-        return batch
+        return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
     

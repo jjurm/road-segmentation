@@ -1,11 +1,10 @@
 import os
 import time
 
-import pandas as pd
+import numpy as np
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning import loggers as pl_loggers
-import tensorboard
 from torch.utils.data import DataLoader
 
 import utils as U
@@ -19,26 +18,30 @@ def main(config:Configuration):
     # Fix random seed
     if config.seed is None:
         config.seed = int(time.time())
+    # TODO: use seed in Trainer and Albumentations?
 
     # Create or an experiment ID and a folder where to store logs and config.
-    log_dir = U.create_log_dir(config)
-    U.export_cmd(os.path.join(log_dir, 'config.json'))
-    U.export_code(os.path.join(log_dir, 'config.json'))
+    log_dir, log_id = U.create_log_dir(config)
+    U.export_cmd(os.path.join(log_dir, 'cmd.sh'))
+    U.export_code(os.path.join(log_dir, 'code.zip'))
     config.to_json(os.path.join(log_dir, 'config.json'))
 
-    # Create a checkpoint file for the best model.
-    tensorboard_log = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR)
-    checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='val_loss')
+    # Create a logger and checkpoint file for the best model.
+    logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
+    checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, name='model.pth', monitor='val_loss')
 
     # Create model on correct device
     model = create_model(config).to(C.DEVICE)
     print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
     print(model)
 
+    # Prepare Transforms
+    # https://albumentations.ai/docs/examples/pytorch_semantic_segmentation
+
     # Prepare datasets and Dataloaders
     train_set = SatelliteData('gmaps', config)
     valid_set = SatelliteData('training', config)
-    test_set = SatelliteData('test', config, test=True)
+    test_set = SatelliteData('test', config, train=False)
     
     train_dl = DataLoader(train_set, config.bs_train, num_workers=config.data_workers)
     valid_dl = DataLoader(valid_set, config.bs_eval, num_workers=config.data_workers)
@@ -47,20 +50,17 @@ def main(config:Configuration):
     
     # Train model.
     trainer = pl.Trainer(max_epochs=config.n_epochs,
-                        logger=tensorboard_log,
+                        logger=logger,
                         callbacks=[checkpoint_cb])
     trainer.fit(model, train_dl, valid_dl)
 
     # Validate model.
     trainer.validate(model, valid_dl)
 
-    # Generate predictions and store submission
-    preds = trainer.predict(model, test_dl)
-    preds = pd.DataFrame(preds)
-
-    preds.to_csv(os.path.join(log_dir, 'submission.scv'))
-    print(preds.head(10))
-
+    # Generate and save submission
+    submission = trainer.predict(model, test_dl)
+    submission = np.concatenate(submission) # concat batches
+    U.to_csv(submission, os.path.join(log_dir, 'submission.csv'))
 
     return
 
