@@ -50,6 +50,7 @@ def main(config:Configuration):
     
     # Train model.
     trainer = pl.Trainer(max_epochs=config.n_epochs,
+                        accelerator='auto',
                         logger=logger,
                         callbacks=[checkpoint_cb])
     trainer.fit(model, train_dl, valid_dl)
