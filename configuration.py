@@ -87,7 +87,7 @@ class Configuration(object):
                             help='Print stats to console every so many iters.')
         general.add_argument('--eval_every', type=int, default=400, 
                             help='Evaluate validation set every so many iters.')
-        general.add_argument('--seed', type=int, default=0,
+        general.add_argument('--seed', type=int, default=None,
                             help='Random number generator seed.')
 
         # Data.
