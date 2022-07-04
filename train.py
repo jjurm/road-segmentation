@@ -31,7 +31,7 @@ def main(config:Configuration):
     checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, filename='model.pth', monitor='val_loss')
 
     # Create model on correct device
-    model = create_model(config).to(C.DEVICE)
+    model = create_model(config)
     print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
     print(model)
 

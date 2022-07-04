@@ -37,13 +37,11 @@ class Constants(object):
                     - CIL_DATA: path to datasets
                     - CIL_RESULTS: path to store results''')
 
-            # Set C.DEVICE
+            # Print device
             if torch.cuda.is_available():
-                self.DEVICE = torch.device('cuda')
                 GPU = torch.cuda.get_device_name(torch.cuda.current_device())
                 print(f'Torch running on {GPU}...' , flush=True)
             else:
-                self.DEVICE = torch.device('cpu')
                 print(f'Torch running on CPU...', flush=True)
 
     instance = None
