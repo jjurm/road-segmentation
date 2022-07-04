@@ -115,7 +115,7 @@ class Pix2Patch(torch.nn.Module):
         self.kernel_size = [1, 1, patch_size, patch_size]
 
         # Averaging kernel with value 1/num_elements
-        self.kernel = torch.ones(self.kernel_size, dtype=C.DTYPE)
+        self.register_buffer('kernel', torch.ones(self.kernel_size, dtype=C.DTYPE))
         self.kernel = self.kernel / (patch_size ** 2)
         self.kernel.requires_grad = False
 
