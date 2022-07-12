@@ -79,14 +79,14 @@ class Configuration(object):
 
         # General.
         general = parser.add_argument_group('General')
-        general.add_argument('--data_workers', type=int, default=4, 
+        general.add_argument('--n_workers', type=int, default=4, 
                             help='Number of parallel threads for data loading.')
-        general.add_argument('--print_every', type=int, default=200, 
-                            help='Print stats to console every so many iters.')
-        general.add_argument('--eval_every', type=int, default=400, 
-                            help='Evaluate validation set every so many iters.')
         general.add_argument('--seed', type=int, default=None,
                             help='Random number generator seed.')
+        general.add_argument('--log_every', type=int, default=1,
+                            help='Log every so many steps.')
+        general.add_argument('--force_cpu', action='store_true',
+                            help='Force training on CPU instead of GPU.')
 
         # Data.
         data = parser.add_argument_group('Data')

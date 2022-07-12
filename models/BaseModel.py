@@ -78,13 +78,12 @@ class BaseModel(pl.LightningModule):
 
     def training_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log_dict(out)
+        self.log_dict(dict([(f'train/{k}', v) for (k,v) in out.items()]))
         return out
 
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        out = dict([(f'val_{k}', v) for (k,v) in out.items()])
-        self.log_dict(out)
+        self.log_dict(dict([(f'valid/{k}', v) for (k,v) in out.items()]))
         return out
 
 
