@@ -1,3 +1,4 @@
+from html import entities
 import os
 import time
 
@@ -42,7 +43,7 @@ def main(config:Configuration):
 
     # Create a logger and checkpoint file for the best model.
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
-    wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL')
+    wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
     wandb.watch(model=model, log='all')
     checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, filename='model.pth', monitor='valid/loss')
 
