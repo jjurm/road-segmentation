@@ -8,7 +8,7 @@
 ## Setup
 
 1. Find newest python environment (`module available`) and load it environment: 
-`module load gcc/6.3.0 python_gpu 3.8.5`
+`module load gcc/8.2.0 python_gpu/3.9.9 eth_proxy`
 2. Create new virtual environment, I'd recommend like so:
 `python -m venv $HOME/venv/cil`
 3. Activate your virtual environment:
@@ -17,11 +17,12 @@
 `pip install -r requirements_cluster.txt`
 5. I recommend setting up the .bashrc for cil project:
 ```
-module load gcc/6.3.0 python_gpu 3.8.5
+module load gcc/8.2.0 python_gpu/3.9.9 eth_proxy
 source venv venv/cil/bin/activate
 export CIL_DATA=$SCRATCH/cil-data
-export CIL_RESULTS=$SCRATCH/cil/results
+export CIL_RESULTS=$HOME/cil/results
 ```
+6. Log in to weights&biases: `wandb login`
 
 
 ## Submit Jobs
