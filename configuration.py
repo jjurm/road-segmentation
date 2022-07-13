@@ -157,18 +157,16 @@ class Configuration(object):
         # Argument parser.
         parser = Configuration.parser(pre_parser)
 
-        # 1. Get defaults from parser
+        # 1. Get default configurations
         config = Configuration.get_default()
 
         # 2. Overwrite with defaults with JSON config
-        pre_args, remaining_argv = pre_parser.parse_known_args()
-        if pre_args.from_json is not None:
-            json_path = pre_args.from_json 
-            config = Configuration.from_json(json_path, config)
-            config.from_json = pre_args.from_json
+        args = parser.parse_args() # irgnore args except --from_json
+        if args.from_json is not None:
+            config = Configuration.from_json(args.from_json, config)
 
         # 3. Overwrite JSON config with remaining cmd args
-        parser.parse_args(remaining_argv, config)
+        parser.parse_args(namespace=config)
 
         return config
 
@@ -195,10 +193,6 @@ def create_model(config:Configuration):
     if config.model == 'LinearConv':
         from models.LinearConv import LinearConv
         return LinearConv(config)
-    
-    if config.model == 'UNet':
-        from models.UNet import UNet
-        return UNet(config)
 
     raise RuntimeError('Unkown model name.')
 

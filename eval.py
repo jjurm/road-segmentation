@@ -43,11 +43,33 @@ def main(config:Configuration, logdir:str):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--log_dir', type=str,
-                        help='Load configuration from JSON file.')
-    args = parser.parse_args()
+    # Initial parser.
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument('log_dir', type=str,
+                        help='Load checkpoint and configuration from log directory.')
+    
+    # Argument parser to overwrite evaluation-specific args.
+    parser = argparse.ArgumentParser(parents=[pre_parser],
+                formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--n_workers', type=int, default=4, 
+                            help='Number of parallel threads for data loading.')
+    parser.add_argument('--force_cpu', action='store_true',
+                            help='Force training on CPU instead of GPU.')
+    parser.add_argument('--bs_eval', type=int, default=16, 
+                            help='Batch size for valid/test set.')
 
-    config = Configuration.from_json(os.path.join(args.log_dir, 'config.json'))
-    print(f'Evaluating experiment with configuration: \n {config}', flush=True)
-    main(config, args.slogdir)
+    # 1. Get default configurations
+    config = Configuration.get_default()
+
+    # 2. Overwrite with defaults with JSON config
+    args = parser.parse_args()
+    if args.log_dir is not None:
+        json_path = os.path.join(args.log_dir, 'config.json') 
+        config = Configuration.from_json(json_path, config)
+
+    # 2. Overwrite json with remaining cmd args
+    parser.parse_args(namespace=config)
+
+    print(f'Evaluating experiment evaluation with configuration: \n {config}', flush=True)
+    #main(config, args.log_dir)
+
