@@ -7,7 +7,10 @@ from torchmetrics import F1Score
 
 
 class BaseModel(pl.LightningModule):
-    """A base class for neural networks that defines an interface and implements a few common functions."""
+    """A base class for neural networks that defines an interface and implements automatic
+    handling of patch-wise and pixel-wise loss functions and metrics. By default, a model 
+    is expected to ouput pixel-wise and patch-wise, depending on config.model_out. Please
+    raise an error, if your model does not support one of the methods."""
 
     def __init__(self, config:Configuration):
         super().__init__()

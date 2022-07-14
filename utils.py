@@ -96,11 +96,17 @@ def to_csv(sub:np.ndarray, fname):
 
 
 class ToFloatDual(A.DualTransform, A.ToFloat):
-    '''Dual Transform of A.ToFloat.'''
+    '''Dual Transform of A.ToFloat: 
+    While `A.ToFloat` only casts the image to float, 
+    `ToFloatDual` casts both image and mask to float.'''
     pass
 
 
 class Pix2Patch(torch.nn.Module):
+    '''Transform Pixel to Patch Maps:
+    This nn.Module takes a pixel map, computes the patch-wise the averages
+    and stores them in a path map. This can be used to compute the ratio of active pixels
+    in a segmentation map.'''
     def __init__(self, patch_size, input_dim=3) -> None:
         super().__init__()
 
