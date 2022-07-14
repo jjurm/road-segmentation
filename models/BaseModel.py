@@ -101,7 +101,8 @@ class BaseModel(pl.LightningModule):
 
         # generate patch indices for one sample: [size, size, 2]
         n_samples, size, _ = preds.shape
-        p_inds_W = torch.arange(0, C.IMG_SIZE, C.PATCH_SIZE).expand(size, size)
+        p_inds_W = torch.arange(0, C.IMG_SIZE, C.PATCH_SIZE, device=self.device)
+        p_inds_W = p_inds_W.expand(size, size)
         p_inds_H = p_inds_W.transpose(0,1)
         p_inds = torch.stack((p_inds_H, p_inds_W), -1)
 
