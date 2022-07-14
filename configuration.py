@@ -111,10 +111,12 @@ class Configuration(object):
         training = parser.add_argument_group('Training')
         training.add_argument('--n_epochs', type=int, default=50, 
                             help='Number of epochs to train for.')
-        training.add_argument('--opt', type=str, choices={'adam', 'sgd'}, default='adam', 
+        training.add_argument('--opt', type=str, choices={'adamw', 'adam', 'sgd'}, default='adamw', 
                             help='Optimizer to use for training.')
-        training.add_argument('--lr', type=float, default=0.001, 
+        training.add_argument('--lr', type=float, default=None, 
                             help='Learning rate for optimizer.')
+        training.add_argument('--wd', type=float, default=None, 
+                            help='Weight decay for optimizer.')
 
         return parser
     
@@ -198,7 +200,7 @@ def create_model(config:Configuration):
         from models.BaselineUNet import BaselineUNet
         return BaselineUNet(config)
 
-    raise RuntimeError('Unkown model name.')
+    raise RuntimeError(f'Unkown model name: {config.model}')
 
 
 def create_loss(config:Configuration):
@@ -209,7 +211,7 @@ def create_loss(config:Configuration):
     if config.loss == 'bce':
         return torch.nn.BCELoss()
 
-    raise RuntimeError('Unkown loss name.')
+    raise RuntimeError(f'Unkown loss name: {config.loss}')
 
 
 def create_optimizer(model:torch.nn.Module, config:Configuration):
@@ -217,10 +219,19 @@ def create_optimizer(model:torch.nn.Module, config:Configuration):
     This is a helper function that can be useful if you have optimizers that you want to
     choose from via the command line.
     '''
+    kwargs = dict()
+    if config.lr:
+        kwargs['lr'] = config.lr
+    if config.wd:
+        kwargs['weight_decay'] = config.wd
+
+    if config.opt == 'adamw':
+        return torch.optim.AdamW(model.parameters(), **kwargs)
+
     if config.opt == 'adam':
-        return torch.optim.Adam(model.parameters(), lr=config.lr)
+        return torch.optim.Adam(model.parameters(), **kwargs)
 
     if config.opt == 'sgd':
-        return torch.optim.SGD(model.parameters(), lr=config.lr)
+        return torch.optim.SGD(model.parameters(), **kwargs)
 
-    raise RuntimeError('Unkown optimizer name.')
+    raise RuntimeError(f'Unkown optimizer name: {config.opt}')
