@@ -24,7 +24,7 @@ class BaselineUNet(BaseModel):
     def __init__(self, config, chs=(3,64,128,256,512,1024)):
         super().__init__(config)
 
-        if config.model_out == 'pixel':
+        if config.model_out == 'patches':
             raise RuntimeError('BaselineUNet only supports pixelwise predictions.')
 
         enc_chs = chs  # number of channels in the encoder
@@ -51,5 +51,5 @@ class BaselineUNet(BaseModel):
             x = torch.cat([x, feature], dim=1)  # concatenate skip features
             x = block(x)  # pass through the block
         x = self.head(x)  # reduce to 1 channel
-        
+
         return x.reshape(n_samples, self.out_size, self.out_size)
