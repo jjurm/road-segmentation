@@ -81,10 +81,20 @@ class BaseModel(pl.LightningModule):
         self.log_dict(dict([(f'train/{k}', v) for (k,v) in out.items()]))
         return out
 
+
+    def on_validation_epoch_start(self) -> None:
+        self.f1_pixel.reset()
+        self.f1_patch.reset()
+
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log_dict(dict([(f'valid/{k}', v) for (k,v) in out.items()]))
+        self.log('valid/loss', out['loss']) # log only loss, f1 is accumulated over all batches
         return out
+
+    def validation_epoch_end(self, outputs) -> None:
+        if self.config.model_out == 'pixels':
+            self.log('valid/f1_pixel', self.f1_pixel.compute())
+        self.log('valid/f1_patch', self.f1_patch.compute())
 
 
     def predict_step(self, batch:dict, batch_idx):
