@@ -1,44 +1,74 @@
 import os
 import argparse
 
+import numpy as np
 import torch
+import wandb
+
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_model
 import pytorch_lightning as pl
+from pytorch_lightning import loggers as pl_loggers
 
+from models.BaseModel import BaseModel
+
+import utils as U
 from data import SatelliteData
 from torch.utils.data import DataLoader
 
+def eval(trainer:pl.Trainer, 
+            model:BaseModel, 
+            valid_dl:DataLoader, 
+            test_dl:DataLoader):
 
-def main(config:Configuration, logdir:str):
-    # This is just a very first draft and still under construction...
-    # Needs to be checked and debugged
-    # TODO: 
-    # - Set seed from config?
-    # - Use transforms?
-    # - In train.py use methods defined here (for reproduceability)
-
-    model = create_model(config)
-    model.load_state_dict(torch.load(os.path.join(logdir, 'model.pth')))
-    
-    trainer = pl.Trainer()
-
-    valid_dl = DataLoader(valid_set, config.bs_eval, num_workers=config.data_workers)
-    test_dl = DataLoader(test_set, config.bs_eval, num_workers=config.data_workers)
-    
-
-    valid_set = SatelliteData('training', config)
-    test_set = SatelliteData('test', config, train=False)
-        # Validate model.
-
-    trainer.validate(model, valid_dl)
+    # Validate model.
+    trainer.validate(model, valid_dl) #TODO: does this auto_select GPU?
 
     # Generate and save submission
     submission = trainer.predict(model, test_dl)
     submission = np.concatenate(submission) # concat batches
-    U.to_csv(submission, os.path.join(log_dir, 'submission.csv'))
+    
+    path = os.path.join(config.log_dir, 'submission.csv')
+    U.to_csv(submission, path)
 
-    pass
+
+def main(config:Configuration):
+    # Prepare Trainer
+
+    trainer = pl.Trainer(
+        logger=None,
+
+        # acceleration
+        accelerator='cpu' if config.force_cpu else 'gpu',
+        devices=None if config.force_cpu else 1,
+        auto_select_gpus=True,
+
+        # debugging
+        #limit_train_batches=2,
+        #limit_val_batches=2,
+        )
+
+    # TODO: use augmentations?
+    # Prepare datasets and transforms.
+    valid_set = SatelliteData('training', config)
+    test_set = SatelliteData('test', config, train=False)
+    print(f'Init {type(valid_set).__name__}: size(train)={len(valid_set)}, size(valid)={len(test_set)}')
+
+    # Prepare datasets and dataloaders
+    dl_args = dict(num_workers=config.n_workers, pin_memory=False if config.force_cpu else True ) 
+    valid_dl = DataLoader(valid_set, config.bs_eval, **dl_args)
+    test_dl = DataLoader(test_set, config.bs_eval, **dl_args)
+
+    # Load model to cpu
+    checkpoint_path = os.path.join(config.log_dir, 'model.ckpt')
+    model = create_model(config)
+    model = model.load_from_checkpoint(
+                checkpoint_path=checkpoint_path, 
+                device=torch.device('cpu'), 
+                config=config)
+    
+    # Evaluate model and save submission
+    eval(trainer, model, valid_dl, test_dl)
 
 
 if __name__ == '__main__':
@@ -70,6 +100,6 @@ if __name__ == '__main__':
     # 2. Overwrite json with remaining cmd args
     parser.parse_args(namespace=config)
 
-    print(f'Evaluating experiment evaluation with configuration: \n {config}', flush=True)
-    #main(config, args.log_dir)
+    print(f'Evaluating experiment with configuration: \n {config}', flush=True)
+    main(config)
 
