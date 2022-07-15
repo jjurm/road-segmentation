@@ -7,7 +7,7 @@ from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
 
 import utils as U
-from configuration import CONSTANTS as C
+from configuration import CONSTANTS as C, create_augmentation
 from configuration import Configuration, create_model
 from data import SatelliteData
 from eval import eval
@@ -63,7 +63,8 @@ def main(config:Configuration):
 
     # Prepare datasets and transforms.
     # https://albumentations.ai/docs/examples/pytorch_semantic_segmentation
-    train_set = SatelliteData('gmaps', config)
+    aug = create_augmentation(config)
+    train_set = SatelliteData('gmaps', config, transform=aug)
     valid_set = SatelliteData('training', config)
     test_set = SatelliteData('test', config, train=False)
     print(f'Init {type(train_set).__name__}: size(train)={len(train_set)}, size(valid)={len(valid_set)}')
