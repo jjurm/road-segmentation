@@ -49,10 +49,9 @@ def main(config:Configuration):
         )
 
     # TODO: use augmentations?
-    # Prepare datasets and transforms.
     valid_set = SatelliteData('training', config)
     test_set = SatelliteData('test', config, train=False)
-    print(f'Init {type(valid_set).__name__}: size(train)={len(valid_set)}, size(valid)={len(test_set)}')
+    print(f'Init {type(valid_set).__name__}: size(valid)={len(valid_set)}, size(test)={len(test_set)}')
 
     # Prepare datasets and dataloaders
     dl_args = dict(num_workers=config.n_workers, pin_memory=False if config.force_cpu else True ) 
