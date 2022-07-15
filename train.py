@@ -32,7 +32,7 @@ def main(config:Configuration):
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
     wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
     #ckpt_loss_cb = pl_callbacks.ModelCheckpoint(monitor='valid/loss', mode='min')
-    ckpt_f1_patch_cb = pl_callbacks.ModelCheckpoint(monitor='valid/f1_patch', mode='max')
+    ckpt_f1_patch_cb = pl_callbacks.ModelCheckpoint(monitor='valid/f1_patch', mode='max', save_last=True)
 
     # Prepare Trainer
     trainer = pl.Trainer(
