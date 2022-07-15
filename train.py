@@ -7,7 +7,7 @@ from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
 
 import utils as U
-from configuration import CONSTANTS as C
+from configuration import CONSTANTS as C, create_augmentation
 from configuration import Configuration, create_model
 from data import SatelliteData
 from eval import eval
@@ -26,17 +26,19 @@ def main(config:Configuration):
     U.export_code(os.path.join(log_dir, 'code.zip'))
     config.to_json(os.path.join(log_dir, 'config.json'))
     config.log_id = log_id # so that it is also accessible from wandb
+    config.jobid = os.environ.get('JOBID')
 
     # Create a logger and checkpoint file for the best model.
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
     wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
-    checkpoint_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, filename='model', monitor='valid/loss')
+    checkpoint_cb = pl_callbacks.ModelCheckpoint(filename='model', monitor='valid/f1_patch')
 
     # Prepare Trainer
     trainer = pl.Trainer(
         # training dynamics
         max_epochs=config.n_epochs,
         callbacks=[checkpoint_cb],
+        default_root_dir=log_dir,
 
         # logging
         logger=[logger, wandb],
@@ -61,7 +63,8 @@ def main(config:Configuration):
 
     # Prepare datasets and transforms.
     # https://albumentations.ai/docs/examples/pytorch_semantic_segmentation
-    train_set = SatelliteData('gmaps', config)
+    aug = create_augmentation(config)
+    train_set = SatelliteData('gmaps', config, transform=aug)
     valid_set = SatelliteData('training', config)
     test_set = SatelliteData('test', config, train=False)
     print(f'Init {type(train_set).__name__}: size(train)={len(train_set)}, size(valid)={len(valid_set)}')
@@ -69,7 +72,7 @@ def main(config:Configuration):
 
     # Prepare datasets and dataloaders
     dl_args = dict(num_workers=config.n_workers, pin_memory=False if config.force_cpu else True ) 
-    train_dl = DataLoader(train_set, config.bs_train, **dl_args)
+    train_dl = DataLoader(train_set, config.bs_train, shuffle=True, **dl_args)
     valid_dl = DataLoader(valid_set, config.bs_eval, **dl_args)
     test_dl = DataLoader(test_set, config.bs_eval, **dl_args)
     

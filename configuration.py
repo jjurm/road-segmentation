@@ -94,6 +94,8 @@ class Configuration(object):
                             help='Batch size for the training set.')
         data.add_argument('--bs_eval', type=int, default=16, 
                             help='Batch size for valid/test set.')
+        data.add_argument('--aug', type=str, default=None,
+                            help='Name of augmentation to apply to training data.')
 
         # Model.
         model = parser.add_argument_group('Model')
@@ -235,3 +237,22 @@ def create_optimizer(model:torch.nn.Module, config:Configuration):
         return torch.optim.SGD(model.parameters(), **kwargs)
 
     raise RuntimeError(f'Unkown optimizer name: {config.opt}')
+
+
+def create_augmentation(config:Configuration):
+    '''
+    This is a helper function that can be useful if you have augmentations that you want to
+    choose from via the command line.
+    '''
+
+    if config.aug is None or config.aug == '':
+        from albumentations import NoOp
+        return NoOp()
+
+    if config.aug == 'aug_with_crop':
+        from augmentations import aug_with_crop
+        return aug_with_crop()
+
+    if config.aug == 'aug_without_crop':
+        from augmentations import aug_without_crop
+        return aug_without_crop()
