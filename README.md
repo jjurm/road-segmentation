@@ -12,7 +12,7 @@
 2. Create new virtual environment, I'd recommend like so:
 `python -m venv $HOME/venv/cil`
 3. Activate your virtual environment:
-`source venv venv/cil/bin/activate`
+`source venv/cil/bin/activate`
 4. Install requirements for cluster:
 `pip install -r requirements_cluster.txt`
 5. Download the data into scratch.
