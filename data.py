@@ -1,9 +1,9 @@
 import re
 
-import albumentations as A
+import augmentations as A
 import cv2
 import torch
-from albumentations.pytorch.transforms import ToTensorV2
+from augmentations.pytorch.transforms import ToTensorV2
 
 import utils as U
 from configuration import CONSTANTS as C

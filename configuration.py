@@ -198,6 +198,14 @@ def create_model(config:Configuration):
         from models.LinearConv import LinearConv
         return LinearConv(config)
 
+    if config.model == 'UNet':
+        from models.baseUNet import BaselineUNet
+        return BaselineUNet(config)
+    
+    if config.model[:6] == 'ResNet':
+        from models.ResNet import ResNetEncoder
+        return ResNetEncoder(config)
+
 
     raise RuntimeError(f'Unkown model name: {config.model}')
 
