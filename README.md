@@ -23,7 +23,7 @@ git clone git@github.com:safelix/cil-data.git
 5. I recommend setting up the .bashrc for cil project:
 ```
 module load gcc/8.2.0 python_gpu/3.9.9 eth_proxy
-source venv venv/cil/bin/activate
+source venv/cil/bin/activate
 export CIL_DATA=$SCRATCH/cil-data
 export CIL_RESULTS=$HOME/cil/results
 ```
