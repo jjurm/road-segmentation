@@ -1,4 +1,4 @@
-import augmentations as A
+import albumentations as A
 import utils
 import os
 from tqdm import tqdm

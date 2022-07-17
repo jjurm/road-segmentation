@@ -4,4 +4,5 @@ torch
 googlemaps
 scikit-image
 polyline
+albumentations
 pyproj
