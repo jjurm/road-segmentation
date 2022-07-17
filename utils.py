@@ -4,7 +4,7 @@ import zipfile
 from datetime import datetime
 from glob import glob
 
-import augmentations as A
+import albumentations as A
 import numpy as np
 import torch
 from torch.nn import functional as F
