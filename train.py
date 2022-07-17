@@ -50,7 +50,7 @@ def main(config:Configuration):
         devices=None if config.force_cpu else 1,
         auto_select_gpus=True,
 
-        # debugging
+        #debugging
         #limit_train_batches=2,
         #limit_val_batches=2,
         )
