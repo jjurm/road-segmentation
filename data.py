@@ -1,6 +1,6 @@
 import re
 
-import augmentations as A
+import albumentations as A
 import cv2
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
