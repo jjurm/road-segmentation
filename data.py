@@ -3,7 +3,7 @@ import re
 import augmentations as A
 import cv2
 import torch
-from augmentations.pytorch.transforms import ToTensorV2
+from albumentations.pytorch.transforms import ToTensorV2
 
 import utils as U
 from configuration import CONSTANTS as C
