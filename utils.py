@@ -1,145 +1,133 @@
 import os
+import sys
+import zipfile
+from datetime import datetime
+from glob import glob
+
+import augmentations as A
 import numpy as np
-from skimage.io import imread
-import matplotlib.pyplot as plt
-import PIL
-import imageio
+import torch
+from torch.nn import functional as F
 
-# Function to get the metadata dictionary for the dataset
-def get_dict(path, include_augmentations=False):
+from configuration import CONSTANTS as C
+from configuration import Configuration
 
-    # Create dictionary
-    d = {
-        'ids': 
-            {
-            'train': [],
-            'test': []
-            },
-        'images': {},
-        'masks': {}
-        }
 
-    # Images paths
-    path_images_train = os.path.join(path, 'training', 'images')
-    path_images_test = os.path.join(path, 'test', 'images')
-    # Masks path
-    path_masks_train = os.path.join(path, 'training', 'groundtruth')
+def create_log_id(config:Configuration):
+    '''Create a new logging id, containing timestamp and model name.'''
+    timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
+    return f'{timestamp}--{config.model}'
 
-    # Get file names
-    filepaths_images_train = get_files(path_images_train)
-    filepaths_images_test = get_files(path_images_test)
-    filepaths_masks_train = get_files(path_masks_train)
 
-    # Get ids and fill the dictionary
-    for filepath in filepaths_images_train:
-        id = get_id(filepath)
-        d['ids']['train'].append(id)
-        d['images'][id] = filepath
+def create_log_dir(config:Configuration):
+    '''
+    Create a new logging directory with an id containing timestamp and model name.
+    
+    Args:
+        config: Configuration of current experiment.
 
-    for filepath in filepaths_images_test:
-        id = get_id(filepath)
-        d['ids']['test'].append(id)
-        d['images'][id] = filepath
+    Returns:
+        str: A directory where we can store logs. Raises an exception if the model directory already exists.    
+    '''
+    log_id = create_log_id(config)
+    log_dir = os.path.join(C.RESULTS_DIR, log_id)
 
-    for filepath in filepaths_masks_train:
-        id = get_id(filepath)
-        d['masks'][id] = filepath
+    # make experiments directory
+    os.makedirs(C.RESULTS_DIR, exist_ok=True)
 
-    # Also add the augmented training images and masks (if provided)
-    if include_augmentations:
-        path_images_augmented = os.path.join(path, 'augmentations', 'images')
-        path_masks_augmented = os.path.join(path, 'augmentations', 'groundtruth')
-        filepaths_images_augmented = get_files(path_images_augmented)
-        filepaths_masks_augmented = get_files(path_masks_augmented)
+    if os.path.exists(log_dir):
+        raise ValueError('Logging directory already exists {}'.format(log_dir))
+    os.makedirs(log_dir)
+
+    return log_dir, log_id
+
+
+def export_cmd(fname):
+    '''Stores command to a .sh file.'''
+    if not fname.endswith('.sh'):
+        fname += '.sh'
+
+    cmd = ' '.join(sys.argv)
+    with open(fname, 'w') as f:
+        f.write(cmd)
+
+
+def export_code(fname):
+    '''Stores .py source files in a zip.'''
+    if not fname.endswith('.zip'):
+        fname += '.zip'
+
+    code_files = glob('./*.py', recursive=True)
+    zipf = zipfile.ZipFile(fname, mode='w', compression=zipfile.ZIP_DEFLATED)
+    for f in code_files:
+        zipf.write(f)
+    zipf.close()
+
+
+def count_parameters(net):
+    '''Count number of trainable parameters in `net`.'''
+    return sum(p.numel() for p in net.parameters() if p.requires_grad)
+
+
+def get_filenames(dataset, subdir):
+    '''Get datafiles from dataset subdirectory.'''
+
+    fname = os.path.join(C.DATA_DIR, dataset)
+    if not os.path.exists(fname):
+        raise RuntimeError(f'Dataset does not exist: {fname}')
+    
+    fname = os.path.join(fname, subdir)
+    if not os.path.exists(fname):
+        raise RuntimeError(f'Subdirectory does not exist: {fname}')
         
-        for filepath in filepaths_images_augmented:
-            id = get_id(filepath)
-            d['ids']['train'].append(id)
-            d['images'][id] = filepath
+    fname = os.path.join(fname, '*.png')
+    return sorted(glob(fname))
 
-        for filepath in filepaths_masks_augmented:
-            id = get_id(filepath)
-            d['masks'][id] = filepath
+def to_str(sub:np.ndarray):
+    '''Stream NumPy array to submission strings.'''
+    for i_ind, p_ind_h, p_ind_w, pred  in sub:
+        yield(f'{i_ind:03d}_{p_ind_h}_{p_ind_w},{pred}\n')
 
-    # Sort the ids
-    d['ids']['train'].sort()
-    d['ids']['test'].sort()
+def to_csv(sub:np.ndarray, fname):
+    '''Store NumPy array in submission file.'''
+    with open(fname, 'w') as f:
+        f.write('id,prediction\n')
+        f.writelines(to_str(sub))
 
-    return d
 
-# Function to get the paths to all the files in a dictionary
-def get_files(path):
-    paths = []
-    # Iterate over files
-    for filename in os.listdir(path):
-        f = os.path.join(path, filename)
-        # checking if it is a file
-        if os.path.isfile(f):
-            paths.append(f)
+class ToFloatDual(A.DualTransform, A.ToFloat):
+    '''Dual Transform of A.ToFloat: 
+    While `A.ToFloat` only casts the image to float, 
+    `ToFloatDual` casts both image and mask to float.'''
+    pass
 
-    return paths
 
-# Function to extract the id from a filename
-def get_id(filename):
-    return int(filename.split('.')[0].split('_')[-1])
+class Pix2Patch(torch.nn.Module):
+    '''Transform Pixel to Patch Maps:
+    This nn.Module takes a pixel map, computes the patch-wise the averages
+    and stores them in a path map. This can be used to compute the ratio of active pixels
+    in a segmentation map.'''
+    def __init__(self, patch_size, input_dim=3) -> None:
+        super().__init__()
 
-# Function to read image and mask (given the paths to them)
-def read_image_mask(image_path, mask_path):
-    return (imread(image_path) / 255).astype(np.float32), \
-           (imread(mask_path, as_gray=True) > 0).astype(np.int8)
+        self.patch_size = patch_size
 
-# Function to plot the image, predicted mask and ground truth mask (optional)
-def plot_image_and_mask(img, mask, ground_truth=None, cmap="Blues"):
-    if ground_truth is None:
-        fig, axs = plt.subplots(1,2, figsize=(20,10))
-        axs[0].imshow(img)
-        axs[1].imshow(mask, cmap=cmap)
-        plt.show()
-    else:
-        fig, axs = plt.subplots(1,3, figsize=(20,10))
-        axs[0].imshow(img)
-        axs[1].imshow(mask, cmap=cmap)
-        axs[2].imshow(ground_truth, cmap=cmap)
-        plt.show()
+        if input_dim < 2:
+            raise RuntimeError('Input dimension must be at least 2D.')
 
-# Function to check if a path is creatable
-def is_path_creatable(pathname: str) -> bool:
-    '''
-    `True` if the current user has sufficient permissions to create the passed
-    pathname; `False` otherwise.
-    '''
-    # Parent directory of the passed path. If empty, we substitute the current
-    # working directory (CWD) instead.
-    dirname = os.path.dirname(pathname) or os.getcwd()
-    return os.access(dirname, os.W_OK)
+        # Adaptive kernel size
+        # [1, ..., 1, patchsize, patchsize]
+        self.kernel_size = [1] * input_dim
+        self.kernel_size = [1, 1, patch_size, patch_size]
 
-# Function to check if a path exists or is creatable
-def is_path_exists_or_creatable(pathname: str) -> bool:
-    '''
-    `True` if the passed pathname is a valid pathname for the current OS _and_
-    either currently exists or is hypothetically creatable; `False` otherwise.
+        # Averaging kernel with value 1/num_elements
+        self.register_buffer('kernel', torch.ones(self.kernel_size, dtype=C.DTYPE))
+        self.kernel = self.kernel / (patch_size ** 2)
+        self.kernel.requires_grad = False
 
-    This function is guaranteed to _never_ raise exceptions.
-    '''
-    try:
-        # To prevent "os" module calls from raising undesirable exceptions on
-        # invalid pathnames, is_pathname_valid() is explicitly called first.
-        return is_pathname_valid(pathname) and (
-            os.path.exists(pathname) or is_path_creatable(pathname))
-    # Report failure on non-fatal filesystem complaints (e.g., connection
-    # timeouts, permissions issues) implying this path to be inaccessible. All
-    # other exceptions are unrelated fatal issues and should not be caught here.
-    except OSError:
-        return False
-
-# Function to save np array to image
-def save_array_as_image(arr, path):
-    if not path.endswith('.png'):
-        print("[ERROR] Path needs to end with .png")
-        return
-
-    if not is_path_creatable(path):
-        print("Path is invalid.")
-        return
-
-    imageio.imwrite(path, arr)
+    def forward(self, pix_map:torch.Tensor):
+        pix_map = pix_map.unsqueeze(1)
+        patch_map = F.conv2d(input=pix_map,
+                             weight=self.kernel,
+                             stride=self.patch_size)
+        return patch_map.squeeze(1)
