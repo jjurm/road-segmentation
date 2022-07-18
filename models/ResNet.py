@@ -13,7 +13,7 @@ class ResNetEncoder(BaseModel):
             raise RuntimeError('ResNetEncoder only supports patchwise predictions.')
 
         name = config.model.lower()
-        self.resnet = timm.create_model(name, features_only=True, pretrained=False)
+        self.resnet = timm.create_model(name, features_only=True, pretrained=config.pretrained)
 
         # change stride of first convolution from 2 to 1 
         if isinstance(self.resnet.conv1, Iterable):

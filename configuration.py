@@ -103,6 +103,7 @@ class Configuration(object):
         model = parser.add_argument_group('Model')
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
+        model.add_argument('--pretrained', action='store_true')
         model.add_argument('--model_out', type=str, choices={'pixels', 'patches'}, default='pixels',
                             help='Output features of model. Some models might not support pixels.')
         model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'}, default='patches',
