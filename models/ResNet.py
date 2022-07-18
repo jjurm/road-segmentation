@@ -13,7 +13,7 @@ class ResNetEncoder(BaseModel):
             raise RuntimeError('ResNetEncoder only supports patchwise predictions.')
 
         name = config.model.lower()
-        self.resnet = timm.create_model(name)
+        self.resnet = timm.create_model(name, features_only=True, pretrained=False)
 
         # change stride of first convolution from 2 to 1 
         if isinstance(self.resnet.conv1, Iterable):
@@ -28,8 +28,8 @@ class ResNetEncoder(BaseModel):
     def forward(self, batch: torch.Tensor):
         n_samples, n_channels, in_size, in_size = batch.shape
 
-        batch = self.resnet(batch)
-        batch = self.head()
+        batch = self.resnet(batch)[-1]
+        batch = self.head(batch)
 
         return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
 
