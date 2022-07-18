@@ -1,0 +1,8 @@
+{
+    "bs_train": 8,
+    "bs_eval": 8,
+    "model": "BaselineUNet",
+    "model_out": "pixels",
+    "loss_in": "pixels",
+    "loss": "bce"
+  }

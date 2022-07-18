@@ -19,7 +19,8 @@ from torch.utils.data import DataLoader
 def eval(trainer:pl.Trainer, 
             model:BaseModel, 
             valid_dl:DataLoader, 
-            test_dl:DataLoader):
+            test_dl:DataLoader,
+            path:str):
 
     # Validate model.
     trainer.validate(model, valid_dl) #TODO: does this auto_select GPU?
@@ -28,13 +29,11 @@ def eval(trainer:pl.Trainer,
     submission = trainer.predict(model, test_dl)
     submission = np.concatenate(submission) # concat batches
     
-    path = os.path.join(config.log_dir, 'submission.csv')
     U.to_csv(submission, path)
 
-
 def main(config:Configuration):
+    
     # Prepare Trainer
-
     trainer = pl.Trainer(
         logger=None,
 
@@ -57,25 +56,24 @@ def main(config:Configuration):
     dl_args = dict(num_workers=config.n_workers, pin_memory=False if config.force_cpu else True ) 
     valid_dl = DataLoader(valid_set, config.bs_eval, **dl_args)
     test_dl = DataLoader(test_set, config.bs_eval, **dl_args)
-
-    # Load model to cpu
-    checkpoint_path = os.path.join(config.log_dir, 'model.ckpt')
+    
     model = create_model(config)
     model = model.load_from_checkpoint(
-                checkpoint_path=checkpoint_path, 
-                device=torch.device('cpu'), 
+                checkpoint_path=config.ckpt, 
+                device=torch.device('cpu') if config.force_cpu else None, 
                 config=config)
     
     # Evaluate model and save submission
-    eval(trainer, model, valid_dl, test_dl)
+    path = os.path.splitext(config.ckpt)[0] + '.csv'
+    eval(trainer, model, valid_dl, test_dl, path)
 
 
 if __name__ == '__main__':
 
     # Initial parser.
     pre_parser = argparse.ArgumentParser(add_help=False)
-    pre_parser.add_argument('log_dir', type=str,
-                        help='Load checkpoint and configuration from log directory.')
+    pre_parser.add_argument('ckpt', type=str,
+                        help='Load state_dict and configuration from checkpoint file.')
     
     # Argument parser to overwrite evaluation-specific args.
     parser = argparse.ArgumentParser(parents=[pre_parser],
@@ -90,13 +88,12 @@ if __name__ == '__main__':
     # 1. Get default configurations
     config = Configuration.get_default()
 
-    # 2. Overwrite with defaults with JSON config
+    # 2. Overwrite with defaults with checkpoint config
     args = parser.parse_args()
-    if args.log_dir is not None:
-        json_path = os.path.join(args.log_dir, 'config.json') 
-        config = Configuration.from_json(json_path, config)
+    ckpt = torch.load(args.ckpt, torch.device('cpu'))
+    config.update(ckpt['hyper_parameters']['config'])
 
-    # 2. Overwrite json with remaining cmd args
+    # 2. Overwrite checkpoint config with remaining cmd args
     parser.parse_args(namespace=config)
 
     print(f'Evaluating experiment with configuration: \n {config}', flush=True)

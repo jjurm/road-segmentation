@@ -12,6 +12,8 @@ import argparse
 import json
 import os
 import pprint
+from typing import Iterable, Union
+from typing_extensions import Self
 
 import torch
 
@@ -181,8 +183,11 @@ class Configuration(object):
             s = json.dumps(vars(self), indent=2)
             f.write(s)
 
-    def update(self, adict:dict):
-        self.__dict__.update(adict)
+    def update(self, adict:Union[dict, Self]):
+        if isinstance(adict, Iterable):
+            self.__dict__.update(adict)
+        else:
+            self.__dict__.update(adict.__dict__)
 
 
 def create_model(config:Configuration):
@@ -201,10 +206,6 @@ def create_model(config:Configuration):
     if config.model == 'BaselineUNet':
         from models.BaselineUNet import BaselineUNet
         return BaselineUNet(config)
-
-    if config.model[:6] == 'ResNet':
-        from models.ResNet import ResNetEncoder
-        return ResNetEncoder(config)
 
     raise RuntimeError(f'Unkown model name: {config.model}')
 

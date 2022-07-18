@@ -30,6 +30,8 @@ class BaseModel(pl.LightningModule):
         elif self.config.model_out == 'pixels':
             self.out_size = C.IMG_SIZE
 
+        self.save_hyperparameters()
+
 
     def configure_optimizers(self):
         optimizer = create_optimizer(self, self.config)
