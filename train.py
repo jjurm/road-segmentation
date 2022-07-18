@@ -31,15 +31,19 @@ def main(config:Configuration):
     # Create a logger and checkpoint file for the best model.
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
     wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
-    #ckpt_loss_cb = pl_callbacks.ModelCheckpoint(monitor='valid/loss', mode='min')
-    ckpt_f1_patch_cb = pl_callbacks.ModelCheckpoint(monitor='valid/f1_patch', mode='max', save_last=True)
+
+    ckpt_last_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, filename='last')
+    ckpt_loss_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/loss', mode='min',
+                            filename='epoch={epoch}-step={step}-val_loss={valid/loss:.3f}', auto_insert_metric_name=False)
+    ckpt_f1_patch_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/f1_patch', mode='max',
+                            filename='epoch={epoch}-step={step}-val_f1={valid/f1_patch:.3f}', auto_insert_metric_name=False)
+
 
     # Prepare Trainer
     trainer = pl.Trainer(
         # training dynamics
         max_epochs=config.n_epochs,
-        callbacks=[ckpt_f1_patch_cb],
-        default_root_dir=log_dir,
+        callbacks=[ckpt_last_cb, ckpt_loss_cb, ckpt_f1_patch_cb],
 
         # logging
         logger=[logger, wandb],
@@ -81,7 +85,8 @@ def main(config:Configuration):
     trainer.fit(model, train_dl, valid_dl)
 
     # Evaluate model and save submission
-    eval(trainer, model, valid_dl, test_dl)
+    path = os.path.join(log_dir, 'last.csv')
+    eval(trainer, model, valid_dl, test_dl, path)
 
 
 if __name__ == '__main__':
