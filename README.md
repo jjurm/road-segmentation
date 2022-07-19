@@ -12,7 +12,7 @@
 2. Create new virtual environment, I'd recommend like so:
 `python -m venv $HOME/venv/cil`
 3. Activate your virtual environment:
-`source venv venv/cil/bin/activate`
+`source venv/cil/bin/activate`
 4. Install requirements for cluster:
 `pip install -r requirements_cluster.txt`
 5. Download the data into scratch.
@@ -20,14 +20,14 @@
 cd $SCRATCH
 git clone git@github.com:safelix/cil-data.git
 ```
-5. I recommend setting up the .bashrc for cil project:
+6. I recommend setting up the .bashrc for cil project:
 ```
 module load gcc/8.2.0 python_gpu/3.9.9 eth_proxy
 source venv venv/cil/bin/activate
 export CIL_DATA=$SCRATCH/cil-data
 export CIL_RESULTS=$HOME/cil/results
 ```
-6. Log in to W&B: `wandb login`
+7. Log in to W&B: `wandb login`
 
 
 ## Submit Jobs

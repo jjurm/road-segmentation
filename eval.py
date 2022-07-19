@@ -19,7 +19,8 @@ from torch.utils.data import DataLoader
 def eval(trainer:pl.Trainer, 
             model:BaseModel, 
             valid_dl:DataLoader, 
-            test_dl:DataLoader):
+            test_dl:DataLoader,
+            config:Configuration):
 
     # Validate model.
     trainer.validate(model, valid_dl) #TODO: does this auto_select GPU?
@@ -67,7 +68,7 @@ def main(config:Configuration):
                 config=config)
     
     # Evaluate model and save submission
-    eval(trainer, model, valid_dl, test_dl)
+    eval(trainer, model, valid_dl, test_dl, config)
 
 
 if __name__ == '__main__':

@@ -2,4 +2,4 @@ pytorch-lightning
 torchmetrics
 torchvision
 albumentations
-wanbd
+wandb

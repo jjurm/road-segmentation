@@ -4,6 +4,11 @@ import utils as U
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
 from torchmetrics import F1Score
+from PIL import Image
+import os
+import wandb
+import torchvision.transforms as transforms
+import numpy as np
 
 
 class BaseModel(pl.LightningModule):
@@ -54,6 +59,7 @@ class BaseModel(pl.LightningModule):
 
         # targets always come as pixel maps
         targets_pixel, targets_patch = targets, self.pix2patch(targets)
+
         # model output might come as pixels or as patches
         if self.config.model_out == 'pixels': 
             probas_pixel, probas_patch = probas, self.pix2patch(probas)
@@ -99,6 +105,62 @@ class BaseModel(pl.LightningModule):
             self.log('valid/f1_pixel', self.f1_pixel.compute())
         self.log('valid/f1_patch', self.f1_patch.compute())
 
+        # === Qualitative feedback ===
+        # -- choose images --
+        val_images = ['satimage_2', 'satimage_15', 'satimage_88', 'satimage_90', 'satimage_116']
+
+        # get path to images
+        rgb_tags = [val_image + ".png" for val_image in val_images]
+        paths_to_img = [os.path.join(C.DATA_DIR, 'training', 'images', rgb_tag) for rgb_tag in rgb_tags]
+        paths_to_gt = [os.path.join(C.DATA_DIR, 'training', 'groundtruth', rgb_tag) for rgb_tag in rgb_tags]
+
+        # convert images to tensors of same size
+        transform = transforms.Compose([
+            transforms.PILToTensor()
+        ])
+        imgs_rgb = torch.stack([transform(Image.open(path_to_img)).type(torch.float32)[:3,:,:] / 255.0
+            for path_to_img in paths_to_img]).to(self.device)
+        imgs_gt = torch.stack([transform(Image.open(path_to_gt)).type(torch.float32).repeat(3,1,1) / 255.0
+            for path_to_gt in paths_to_gt]).to(self.device)
+
+        # get predictions
+        B,_,H,W = imgs_rgb.shape
+        pred = self(imgs_rgb)
+        imgs_pred_pix = pred.unsqueeze(1).repeat(1,3,1,1)
+
+        # get patches from pixels and upsample to original size
+        imgs_gt_patches = self.pix2patch(imgs_gt[:,0,:,:]).unsqueeze(1).repeat(1,3,1,1)
+        upsample = torch.nn.Upsample(scale_factor=16)
+        imgs_gt_patches = upsample(imgs_gt_patches)
+        
+        # log validation images depending on the model output
+        if self.config.model_out == 'pixels':
+            imgs_pred_patches = self.pix2patch(imgs_pred_pix[:,0,:,:]).unsqueeze(1).repeat(1,3,1,1)
+            imgs_pred_patches = upsample(imgs_pred_patches)
+            visualization_plan = [
+                (imgs_rgb, rgb_tags),
+                (imgs_gt, 'GT (pixels'),
+                (imgs_pred_pix, 'Pred (pixels)'),
+                (imgs_gt_patches, 'GT (patches)'),
+                (imgs_pred_patches, 'Pred (patches)'),
+            ]
+        else:
+            imgs_pred_patches = imgs_pred_pix
+            imgs_pred_patches = upsample(imgs_pred_patches)
+            visualization_plan = [
+                (imgs_rgb, rgb_tags),
+                (imgs_gt, 'GT (pixels'),
+                (imgs_gt_patches, 'GT (patches'),
+                (imgs_pred_patches, 'Pred (patches)'),
+            ]
+        
+        # merge all pictures in 1 grid-like image
+        vis = U.compose(visualization_plan)
+
+        wandb.log({
+            'val_pred': [wandb.Image(vis.cpu(), caption="Validation results")]
+        })
+
 
     def predict_step(self, batch:dict, batch_idx):
         images = batch['image']
@@ -127,4 +189,4 @@ class BaseModel(pl.LightningModule):
 
         # reshape into submission format
         submission = torch.cat([i_inds, p_inds, preds], -1)
-        return submission.reshape(-1, 4).numpy()
+        return submission.reshape(-1, 4).cpu().numpy()

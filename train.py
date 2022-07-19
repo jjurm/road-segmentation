@@ -65,6 +65,9 @@ def main(config:Configuration):
     # Prepare datasets and transforms.
     # https://albumentations.ai/docs/examples/pytorch_semantic_segmentation
     aug = create_augmentation(config)
+    # train_set = SatelliteData('gmaps', config, transform=aug)
+    # valid_set = SatelliteData('training', config)
+    # test_set = SatelliteData('test', config, train=False)
     train_set = SatelliteData('gmaps', config, transform=aug)
     valid_set = SatelliteData('training', config)
     test_set = SatelliteData('test', config, train=False)

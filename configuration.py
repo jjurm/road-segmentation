@@ -90,9 +90,9 @@ class Configuration(object):
 
         # Data.
         data = parser.add_argument_group('Data')
-        data.add_argument('--bs_train', type=int, default=16, 
+        data.add_argument('--bs_train', type=int, default=8, 
                             help='Batch size for the training set.')
-        data.add_argument('--bs_eval', type=int, default=16, 
+        data.add_argument('--bs_eval', type=int, default=8, 
                             help='Batch size for valid/test set.')
         data.add_argument('--aug', type=str, default=None,
                             help='Name of augmentation to apply to training data.')

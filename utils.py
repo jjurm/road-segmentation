@@ -9,9 +9,13 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
+from PIL import Image, ImageFont, ImageDraw
+from matplotlib.font_manager import findfont, FontProperties
+
 from configuration import CONSTANTS as C
 from configuration import Configuration
 
+from torchvision.utils import make_grid
 
 def create_log_id(config:Configuration):
     '''Create a new logging id, containing timestamp and model name.'''
@@ -131,3 +135,73 @@ class Pix2Patch(torch.nn.Module):
                              weight=self.kernel,
                              stride=self.patch_size)
         return patch_map.squeeze(1)
+
+class ImageTextRenderer:
+    def __init__(self, size=60):
+        font_path = findfont(FontProperties(family='monospace'))
+        self.font = ImageFont.truetype(font_path, size=size, index=0)
+        self.size = size
+
+    def print_gray(self, img_np_f, text, offs_xy, white=1.0):
+        assert len(img_np_f.shape) == 2, "Image must be single channel"
+        # print("shapee:", img_np_f.shape)
+        # exit()
+        img_pil = Image.fromarray(img_np_f, mode='F')
+        ctx = ImageDraw.Draw(img_pil)
+        step = self.size // 15
+        for dx, dy in ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)):
+            ctx.text((offs_xy[0] + step * dx, offs_xy[1] + step * dy), text, font=self.font, fill=0.0)
+        ctx.text(offs_xy, text, font=self.font, fill=white)
+        return np.array(img_pil)
+
+    def print(self, img_np_f, text, offs_xy, **kwargs):
+        if len(img_np_f.shape) == 3:
+            for ch in range(img_np_f.shape[0]):
+                img_np_f[ch] = self.print_gray(img_np_f[ch], text, offs_xy, **kwargs)
+        else:
+            img_np_f = self.print_gray(img_np_f, text, offs_xy, **kwargs)
+        return img_np_f
+
+_text_renderers = dict()
+
+def get_text_renderer(size):
+    if size not in _text_renderers:
+        _text_renderers[size] = ImageTextRenderer(size)
+    return _text_renderers[size]
+
+
+def img_print(*args, **kwargs):
+    size = kwargs['size']
+    del kwargs['size']
+    renderer = get_text_renderer(size)
+    return renderer.print(*args, **kwargs)
+
+def tensor_print(img, caption, **kwargs):
+    if isinstance(caption, str) and len(caption.strip()) == 0:
+        return img
+    assert img.dim() == 4 and img.shape[1] in (1, 3), 'Expecting 4D tensor with RGB or grayscale'
+    offset = min(img.shape[2], img.shape[3]) // 100
+    img = img.cpu()
+    offset = (offset, offset)
+    size = min(img.shape[2], img.shape[3]) // 15
+    for i in range(img.shape[0]):
+        tag = (caption if isinstance(caption, str) else caption[i]).strip()
+        if len(tag) == 0:
+            continue
+        img_np = img_print(img[i].numpy(), tag, offset, size=size, **kwargs)
+        img[i] = torch.from_numpy(img_np)
+    return img
+
+def compose(list_triples):
+    # list_triples = [(img[:1], c) for (img, c) in list_triples]
+    vis = []
+    for i, (img, caption) in enumerate(list_triples):
+        vis.append(tensor_print(
+            img.clone(), caption if type(caption) is list else [str(caption)] * img.shape[0])
+        )
+
+    vis = torch.cat(vis, dim=2)
+
+    # N x 3 x H * N_MODS x W
+    vis = make_grid(vis, nrow=max(len(list_triples), 1), padding=2, pad_value=0.5)
+    return vis
