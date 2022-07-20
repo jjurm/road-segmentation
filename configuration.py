@@ -87,7 +87,7 @@ class Configuration(object):
                             help='Random number generator seed.')
         general.add_argument('--log_every', type=int, default=1,
                             help='Log every so many steps.')
-        general.add_argument('--force_cpu', action='store_true',
+        general.add_argument('--force_cpu', action='store_true', default=False,
                             help='Force training on CPU instead of GPU.')
 
         # Data.
@@ -103,7 +103,7 @@ class Configuration(object):
         model = parser.add_argument_group('Model')
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
-        model.add_argument('--pretrained', action='store_true')
+        model.add_argument('--pretrained', action='store_true', default=False)
         model.add_argument('--model_out', type=str, choices={'pixels', 'patches'}, default='pixels',
                             help='Output features of model. Some models might not support pixels.')
         model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'}, default='patches',

@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 import torch
-import utils as U
+from utils import Pix2Patch
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
 from torchmetrics import F1Score
@@ -22,7 +22,7 @@ class BaseModel(pl.LightningModule):
         # prepare pix2patch transform
         if config.model_out == 'patches' and config.loss_in == 'pixels':
             RuntimeError(f'Invalid configuration: model_out=patches, loss_in=pixels.')
-        self.pix2patch = U.Pix2Patch(C.PATCH_SIZE)
+        self.pix2patch = Pix2Patch(C.PATCH_SIZE)
 
         # prepare dimensions:
         if self.config.model_out == 'patches':

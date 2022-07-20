@@ -1,0 +1,8 @@
+{
+    "bs_train": 8,
+    "bs_eval": 8,
+    "model": "Resnet18d",
+    "model_out": "pixels",
+    "loss_in": "pixels",
+    "loss": "bce"
+  }
