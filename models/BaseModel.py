@@ -16,8 +16,8 @@ class BaseModel(pl.LightningModule):
         super().__init__()
         self.config = config
         self.loss = create_loss(config)
-        self.f1_pixel = F1Score()
-        self.f1_patch = F1Score(threshold=C.THRESHOLD)
+        self.f1_pixel = F1Score(average='weighted')
+        self.f1_patch = F1Score(average='weighted', threshold=C.THRESHOLD)
 
         # prepare pix2patch transform
         if config.model_out == 'patches' and config.loss_in == 'pixels':
