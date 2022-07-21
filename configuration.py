@@ -261,3 +261,7 @@ def create_augmentation(config:Configuration):
     if config.aug == 'aug_without_crop':
         from augmentations import aug_without_crop
         return aug_without_crop()
+
+    if config.aug =='resize384':
+        from augmentations import resize384
+        return resize384()
