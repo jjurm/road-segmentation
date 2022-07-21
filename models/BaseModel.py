@@ -1,9 +1,11 @@
 from typing import Dict
+
 import pytorch_lightning as pl
 import torch
 import utils as U
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
+from torch import nn
 from torchmetrics import Accuracy, F1Score
 
 
@@ -15,16 +17,27 @@ class BaseModel(pl.LightningModule):
 
     def __init__(self, config:Configuration):
         super().__init__()
-        self.config = config
-        self.loss = create_loss(config)
-        self.f1_pixel = F1Score(num_classes=1, average='weighted')
-        self.f1_patch = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
-        self.acc_pixel = Accuracy(num_classes=1)
-        self.acc_patch = Accuracy(num_classes=1, threshold=C.THRESHOLD)
-
-        # prepare pix2patch transform
         if config.model_out == 'patches' and config.loss_in == 'pixels':
             RuntimeError(f'Invalid configuration: model_out=patches, loss_in=pixels.')
+
+        self.config = config
+        self.loss = create_loss(config)
+
+        ## Metrics
+        self.metrics_patch = nn.ModuleDict()
+        self.metrics_patch['f1_patch'] = F1Score(num_classes=1, threshold=C.THRESHOLD)
+        self.metrics_patch['f1w_patch'] = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
+        self.metrics_patch['acc_patch'] = Accuracy(num_classes=1, threshold=C.THRESHOLD)
+        self.metrics_patch['accw_patch'] = Accuracy(num_classes=1, average='weighted', threshold=C.THRESHOLD)
+        
+        self.metrics_pixel = nn.ModuleDict()
+        if config.model_out == 'pixels':
+            self.metrics_pixel['f1_pixel'] = F1Score(num_classes=1, threshold=C.THRESHOLD)
+            self.metrics_pixel['f1w_pixel'] = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
+            self.metrics_pixel['acc_pixel'] = Accuracy(num_classes=1, threshold=C.THRESHOLD)
+            self.metrics_pixel['accw_pixel'] = Accuracy(num_classes=1, average='weighted', threshold=C.THRESHOLD)
+        
+        # automatic pixel to patch transform by averaging 
         self.pix2patch = U.Pix2Patch(C.PATCH_SIZE)
 
         # prepare dimensions:
@@ -83,11 +96,12 @@ class BaseModel(pl.LightningModule):
             out['loss'] = self.loss(probas_patch, targets_patch)
 
         # add metrics for pixel and patch with hard targets
-        if self.config.model_out == 'pixels':
-            out['f1_pixel'] = self.f1_pixel(probas_pixel, targets_pixel.round().int())
-            out['acc_pixel'] = self.acc_pixel(probas_pixel, targets_pixel.round().int())
-        out['f1_patch'] = self.f1_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
-        out['acc_patch'] = self.acc_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
+        for name, metric in self.metrics_pixel: # is empty for pixelwise predictions
+            out[name] = metric((probas_pixel, targets_pixel.round().int()))
+
+        for name, metric in self.metrics_patch:
+            out[name] = metric(probas_patch, (targets_patch > C.THRESHOLD).int())
+
         
         return out
 
@@ -98,20 +112,22 @@ class BaseModel(pl.LightningModule):
 
 
     def on_validation_epoch_start(self) -> None:
-        self.f1_pixel.reset()
-        self.f1_patch.reset()
-
+        for name, metric in self.metrics_patch:
+            metric.reset()
+        for name, metric in self.metrics_pixel:
+            metric.reset()
+         
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
         self.log('valid/loss', out['loss']) # log only loss, f1 is accumulated over all batches
         return out
 
     def validation_epoch_end(self, outputs) -> None:
-        if self.config.model_out == 'pixels':
-            self.log('valid/f1_pixel', self.f1_pixel.compute())
-            self.log('valid/acc_pixel', self.acc_pixel.compute())
-        self.log('valid/f1_patch', self.f1_patch.compute())
-        self.log('valid/acc_patch', self.acc_patch.compute())
+        for name, metric in self.metrics_patch:
+            self.log(f'valid/{name}', metric.compute())
+
+        for name, metric in self.metrics_pixel:
+            self.log(f'valid/{name}', metric.compute())
 
 
     def predict_step(self, batch:dict, batch_idx):
