@@ -4,7 +4,7 @@ import torch
 import utils as U
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
-from torchmetrics import F1Score
+from torchmetrics import Accuracy, F1Score
 
 
 class BaseModel(pl.LightningModule):
@@ -19,6 +19,8 @@ class BaseModel(pl.LightningModule):
         self.loss = create_loss(config)
         self.f1_pixel = F1Score(num_classes=1, average='weighted')
         self.f1_patch = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
+        self.acc_pixel = Accuracy(num_classes=1)
+        self.acc_patch = Accuracy(num_classes=1, threshold=C.THRESHOLD)
 
         # prepare pix2patch transform
         if config.model_out == 'patches' and config.loss_in == 'pixels':
@@ -83,7 +85,9 @@ class BaseModel(pl.LightningModule):
         # add metrics for pixel and patch with hard targets
         if self.config.model_out == 'pixels':
             out['f1_pixel'] = self.f1_pixel(probas_pixel, targets_pixel.round().int())
+            out['acc_pixel'] = self.acc_pixel(probas_pixel, targets_pixel.round().int())
         out['f1_patch'] = self.f1_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
+        out['acc_patch'] = self.acc_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
         
         return out
 
@@ -105,7 +109,9 @@ class BaseModel(pl.LightningModule):
     def validation_epoch_end(self, outputs) -> None:
         if self.config.model_out == 'pixels':
             self.log('valid/f1_pixel', self.f1_pixel.compute())
+            self.log('valid/acc_pixel', self.acc_pixel.compute())
         self.log('valid/f1_patch', self.f1_patch.compute())
+        self.log('valid/acc_patch', self.acc_patch.compute())
 
 
     def predict_step(self, batch:dict, batch_idx):
