@@ -27,9 +27,9 @@ def eval(trainer:pl.Trainer,
 
     # Generate and save submission
     submission = trainer.predict(model, test_dl)
-    submission = np.concatenate(submission) # concat batches
+    submission = torch.cat(submission, dim=0) # concat batches
     
-    U.to_csv(submission, path)
+    U.to_csv(submission.cpu(), path)
 
 def main(config:Configuration):
     

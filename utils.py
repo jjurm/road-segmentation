@@ -87,10 +87,10 @@ def get_filenames(dataset, subdir):
     fname = os.path.join(fname, '*.png')
     return sorted(glob(fname))
 
-def to_str(sub:np.ndarray):
+def to_str(sub:torch.Tensor):
     '''Stream NumPy array to submission strings.'''
     for i_ind, p_ind_h, p_ind_w, pred  in sub:
-        yield(f'{i_ind:03d}_{p_ind_h}_{p_ind_w},{pred}\n')
+        yield(f'{int(i_ind):03d}_{int(p_ind_h)}_{int(p_ind_w)},{int(pred)}\n')
 
 def to_csv(sub:np.ndarray, fname):
     '''Store NumPy array in submission file.'''
@@ -129,7 +129,7 @@ class Pix2Patch(torch.nn.Module):
         self.kernel = self.kernel / (patch_size ** 2)
         self.kernel.requires_grad = False
 
-    def forward(self, pix_map:torch.Tensor):
+    def forward(self, pix_map:torch.Tensor) -> torch.Tensor:
         pix_map = pix_map.unsqueeze(1)
         patch_map = F.conv2d(input=pix_map,
                              weight=self.kernel,

@@ -1,3 +1,4 @@
+from typing import Dict
 import pytorch_lightning as pl
 import torch
 import utils as U
@@ -16,8 +17,8 @@ class BaseModel(pl.LightningModule):
         super().__init__()
         self.config = config
         self.loss = create_loss(config)
-        self.f1_pixel = F1Score(average='weighted')
-        self.f1_patch = F1Score(average='weighted', threshold=C.THRESHOLD)
+        self.f1_pixel = F1Score(num_classes=1, average='weighted')
+        self.f1_patch = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
 
         # prepare pix2patch transform
         if config.model_out == 'patches' and config.loss_in == 'pixels':
@@ -38,12 +39,12 @@ class BaseModel(pl.LightningModule):
         return optimizer
 
 
-    def forward(self, batch:torch.Tensor):
+    def forward(self, batch:torch.Tensor) -> torch.Tensor:
         n_samples, n_channels, in_size, in_size = batch.shape
         raise NotImplementedError("Must be implemented by subclass.")
         return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
 
-    def step(self, batch:dict, batch_idx):
+    def step(self, batch:Dict[str, torch.Tensor], batch_idx):
         images = batch['image']
         targets = batch['mask']
 
@@ -55,12 +56,17 @@ class BaseModel(pl.LightningModule):
         probas = self(images)
 
         # targets always come as pixel maps
-        targets_pixel, targets_patch = targets, self.pix2patch(targets)
+        targets_pixel = targets.flatten()
+        targets_patch = self.pix2patch(targets).flatten()
+
         # model output might come as pixels or as patches
         if self.config.model_out == 'pixels': 
-            probas_pixel, probas_patch = probas, self.pix2patch(probas)
-        else: 
-            probas_patch = probas # otherwise patches
+            probas_pixel = probas.flatten()
+            probas_patch = self.pix2patch(probas).flatten()
+
+        else: # otherwise patches
+            probas_patch = probas.flatten()
+            
 
         # sanity checks
         # if self.config.model_out == 'pixels': 
@@ -76,7 +82,7 @@ class BaseModel(pl.LightningModule):
 
         # add metrics for pixel and patch with hard targets
         if self.config.model_out == 'pixels':
-            out['f1_pixel'] = self.f1_pixel(probas_pixel, targets_pixel.int()) # TODO: do we need to round with augmentations?
+            out['f1_pixel'] = self.f1_pixel(probas_pixel, targets_pixel.round().int())
         out['f1_patch'] = self.f1_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
         
         return out
@@ -114,19 +120,12 @@ class BaseModel(pl.LightningModule):
         # get predictions
         preds = (probas > C.THRESHOLD).int() * 255
 
-        # generate patch indices for one sample: [size, size, 2]
-        n_samples, size, _ = preds.shape
-        p_inds_W = torch.arange(0, C.IMG_SIZE, C.PATCH_SIZE, device=self.device)
-        p_inds_W = p_inds_W.expand(size, size)
-        p_inds_H = p_inds_W.transpose(0,1)
-        p_inds = torch.stack((p_inds_H, p_inds_W), -1)
+        # get submission table
+        rows = []
+        for k in range(preds.shape[0]):
+            for i in range(preds.shape[1]):
+                for j in range(preds.shape[2]):
+                    row = [i_inds[k], j*C.PATCH_SIZE, i*C.PATCH_SIZE, preds[k, i, j]]
+                    rows.append(torch.Tensor(row).unsqueeze(0))
 
-        # prepare indices and preds for patch: [n_samples, size, size, ]
-        p_inds = p_inds.expand(n_samples, size, size, 2) # p_inds for every batch
-        i_inds = i_inds.reshape(n_samples, 1, 1, 1)
-        i_inds = i_inds.expand(n_samples, size, size, 1) # i_inds for every patch
-        preds = preds.unsqueeze(-1) # singelton dimension for prediction
-
-        # reshape into submission format
-        submission = torch.cat([i_inds, p_inds, preds], -1)
-        return submission.reshape(-1, 4).numpy()
+        return torch.cat(rows, dim=0)
