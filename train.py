@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
+from addons import SegmapVisualizer
 
 import utils as U
 from configuration import CONSTANTS as C, create_augmentation
@@ -39,11 +40,13 @@ def main(config:Configuration):
                             filename='epoch={epoch}-step={step}-val_f1={valid/f1_patch:.3f}', auto_insert_metric_name=False)
 
 
+    smap_cb = SegmapVisualizer()
+
     # Prepare Trainer
     trainer = pl.Trainer(
         # training dynamics
         max_epochs=config.n_epochs,
-        callbacks=[ckpt_last_cb, ckpt_loss_cb, ckpt_f1_patch_cb],
+        callbacks=[ckpt_last_cb, ckpt_loss_cb, ckpt_f1_patch_cb, smap_cb],
 
         # logging
         logger=[logger, wandb],
