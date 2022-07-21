@@ -44,7 +44,7 @@ class BaseModel(pl.LightningModule):
     def forward(self, batch:torch.Tensor) -> torch.Tensor:
         n_samples, n_channels, in_size, in_size = batch.shape
         raise NotImplementedError("Must be implemented by subclass.")
-        return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
+        return batch.reshape(n_samples, 1, self.out_size, self.out_size)
 
     def step(self, batch:Dict[str, torch.Tensor], batch_idx):
         images = batch['image']
@@ -119,12 +119,12 @@ class BaseModel(pl.LightningModule):
         i_inds = batch['idx'] # image indices
 
         # get probabilities
-        probas = self(images)  
+        probas = self(images)
         if self.config.model_out == 'pixels': 
             probas = self.pix2patch(probas)
 
         # get predictions
-        preds = (probas > C.THRESHOLD).int() * 255
+        preds = (probas > C.THRESHOLD).int().squeeze() # remove channels
 
         # get submission table
         rows = []
@@ -132,6 +132,6 @@ class BaseModel(pl.LightningModule):
             for i in range(preds.shape[1]):
                 for j in range(preds.shape[2]):
                     row = [i_inds[k], j*C.PATCH_SIZE, i*C.PATCH_SIZE, preds[k, i, j]]
-                    rows.append(torch.Tensor(row).unsqueeze(0))
+                    rows.append(torch.tensor(row).unsqueeze(0))
 
         return torch.cat(rows, dim=0)

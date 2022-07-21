@@ -35,5 +35,5 @@ class LinearFC(BaseModel):
         batch = self.linear(batch)
         batch = torch.sigmoid(batch)
 
-        return batch.reshape(n_samples, self.out_size, self.out_size)
+        return batch.reshape(n_samples, 1, self.out_size, self.out_size)
     

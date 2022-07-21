@@ -108,33 +108,26 @@ class ToFloatDual(A.DualTransform, A.ToFloat):
 
 class Pix2Patch(torch.nn.Module):
     '''Transform Pixel to Patch Maps:
-    This nn.Module takes a pixel map, computes the patch-wise the averages
-    and stores them in a path map. This can be used to compute the ratio of active pixels
+    This nn.Module takes a pixel map, computes the patch-wise averages
+    and stores them in a patch map. This can be used to compute the ratio of active pixels
     in a segmentation map.'''
-    def __init__(self, patch_size, input_dim=3) -> None:
+    def __init__(self, patch_size) -> None:
         super().__init__()
 
         self.patch_size = patch_size
-
-        if input_dim < 2:
-            raise RuntimeError('Input dimension must be at least 2D.')
-
-        # Adaptive kernel size
-        # [1, ..., 1, patchsize, patchsize]
-        self.kernel_size = [1] * input_dim
         self.kernel_size = [1, 1, patch_size, patch_size]
 
-        # Averaging kernel with value 1/num_elements
+        # Summing kernel with value 1
         self.register_buffer('kernel', torch.ones(self.kernel_size, dtype=C.DTYPE))
-        self.kernel = self.kernel / (patch_size ** 2)
         self.kernel.requires_grad = False
+        self.num_elements = self.kernel.sum()
 
     def forward(self, pix_map:torch.Tensor) -> torch.Tensor:
-        pix_map = pix_map.unsqueeze(1)
+        pix_map = pix_map.reshape(-1, 1, *pix_map.shape[-2:])
         patch_map = F.conv2d(input=pix_map,
                              weight=self.kernel,
-                             stride=self.patch_size)
-        return patch_map.squeeze(1)
+                             stride=self.patch_size) / self.num_elements
+        return patch_map.reshape(*pix_map.shape[:-2], *patch_map.shape[-2:])
 
 class ImageTextRenderer:
     def __init__(self, size=60):

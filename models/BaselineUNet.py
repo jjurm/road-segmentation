@@ -52,4 +52,4 @@ class BaselineUNet(BaseModel):
             x = block(x)  # pass through the block
         x = self.head(x)  # reduce to 1 channel
 
-        return x.reshape(n_samples, self.out_size, self.out_size)
+        return x.reshape(n_samples, 1, self.out_size, self.out_size)
