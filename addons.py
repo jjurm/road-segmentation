@@ -1,13 +1,102 @@
 import os
+from typing import Dict, Type
 import pytorch_lightning as pl
+from sklearn import metrics
 import torch
 import wandb
 
 from configuration import CONSTANTS as C
 import torchvision.transforms as transforms
 from PIL import Image
+from models.BaseModel import BaseModel
 
 import utils as U
+import torch
+from torch import nn
+from torchmetrics import Metric
+
+class MetricLoggerBase(pl.Callback):
+    '''
+    MetricLogger Callback, which tries to adhere to the torchmetrics documentation for pytorch-lightning:
+    https://torchmetrics.readthedocs.io/en/latest/pages/lightning.html
+    '''
+    def __init__(self, model_out:str, t_metrics:Dict[str, Type[Metric]], weighted=True) -> None:
+        super().__init__()
+                
+        # output modes of model: for pixelwise model, also the patchwise outputs are tracked
+        self.outmodes = ['patch', 'pixel'] if (model_out=='pixel') else ['patch']
+
+        # It's not possible to reuse metrics.. thus we need to store all of them independently
+        self.metrics = nn.ModuleDict()
+        
+        for outmode in self.outmodes:  # for every output mode, store a dictionary of metrics
+            self.metrics[outmode] = nn.ModuleDict()
+
+            for name, t_metric in t_metrics.items(): # add all specified metrics to dictionary
+                # instanciate the metric as a binary metric
+                self.metrics[outmode][name] = t_metric(num_classes=None, multiclass=None) #binary
+
+                if weighted: # instanciate the metric as a binary metric with weighted averaging
+                     self.metrics[outmode][name+'w'] = t_metric(num_classes=2, multiclass=True, average='weighted')
+        return
+
+
+    def reset_metrics(self):
+        for outmode in self.metrics.keys():  
+            for name in self.metrics[outmode].keys():
+                self.metrics[outmode][name].reset()  
+
+
+class TrainMetricLogger(MetricLoggerBase):
+    def on_train_epoch_start(self, *args) -> None:
+        self.reset_metrics()
+
+    def on_train_batch_end(self, trainer: pl.Trainer, model: BaseModel, out:Dict[str, Dict[str, torch.Tensor]], *args):
+        logdict = {} 
+        # compute pixel- and patchwise predicitons/targes as hard labels
+        for outmode in self.metrics.keys():  
+            preds = model.apply_threshold(out[outmode]['probas'], outmode)
+            targs = model.apply_threshold(out[outmode]['targets'], outmode)
+
+            # need to flatten and cast for metrics
+            preds, targs = preds.float().flatten(), targs.int().flatten() 
+
+            # compute every metric, than batch_value to logdict
+            for name in self.metrics[outmode].keys():     
+                batch_value = self.metrics[outmode][name](preds, targs)      # compute metric
+                logdict[f'train/{outmode}/{name}'] = batch_value               # add to logdict
+        
+        model.log_dict(logdict)
+
+
+class ValidMetricLogger(MetricLoggerBase):
+    def on_validation_epoch_start(self, *args) -> None:
+        self.reset_metrics() 
+
+    def on_validation_batch_end(self, trainer: pl.Trainer, model: BaseModel, out:Dict[str, Dict[str, torch.Tensor]], *args):
+        # compute pixel- and patchwise predicitons/targes as hard labels
+        for outmode in self.metrics.keys():  
+            preds = model.apply_threshold(out[outmode]['probas'], outmode)
+            targs = model.apply_threshold(out[outmode]['targets'], outmode)
+
+            # need to flatten and cast for metrics
+            preds, targs = preds.float().flatten(), targs.int().flatten() 
+            
+            # update every metric, computation will happen on validation_epoch_end
+            for name in self.metrics[outmode].keys():     
+                self.metrics[outmode][name].update(preds, targs)      # update metric
+        
+    def on_validation_epoch_end(self, trainer: pl.Trainer, model: BaseModel):
+        logdict = {}
+        # compute, log and reset every validation metric
+        for outmode in self.metrics.keys():  
+            for name in self.metrics[outmode].keys():
+                metric_value = self.metrics[outmode][name].compute()     # compute metric
+                logdict[f'valid/{outmode}/{name}'] = metric_value               # add to logdict
+        
+        model.log_dict(logdict)
+
+
 
 class SegmapVisualizer(pl.Callback):
     def __init__(self, val_images=None) -> None:

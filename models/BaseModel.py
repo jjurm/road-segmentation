@@ -1,13 +1,10 @@
-from copy import deepcopy
-from typing import Dict
+from typing import Dict, Tuple
 
 import pytorch_lightning as pl
 import torch
 import utils as U
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
-from torch import nn
-from torchmetrics import Accuracy, F1Score
 
 
 class BaseModel(pl.LightningModule):
@@ -38,18 +35,6 @@ class BaseModel(pl.LightningModule):
         # output modes of model: for pixelwise model, also the patchwise outputs are tracked
         self.outmodes = ['patch', 'pixel'] if (config.model_out=='pixel') else ['patch']
 
-        ## Metrics
-        # sadly can't reuse metrics: https://torchmetrics.readthedocs.io/en/latest/pages/lightning.html
-        self.train_metrics = nn.ModuleDict()
-        self.valid_metrics = nn.ModuleDict()
-        for phase_metrics in [self.train_metrics, self.valid_metrics]:
-            for outmode in self.outmodes:
-                phase_metrics[outmode] = nn.ModuleDict()
-                phase_metrics[outmode]['f1'] = F1Score(num_classes=None, multiclass=None)   #binary
-                phase_metrics[outmode]['acc'] = Accuracy(num_classes=None, multiclass=None) #binary
-                phase_metrics[outmode]['f1w'] = F1Score(num_classes=2, multiclass=True, average='weighted')   #multiclass weighted
-                phase_metrics[outmode]['accw'] = Accuracy(num_classes=2, multiclass=True, average='weighted') #multiclass weighted
-
         self.save_hyperparameters()
 
 
@@ -57,11 +42,11 @@ class BaseModel(pl.LightningModule):
         optimizer = create_optimizer(self, self.config)
         return optimizer
 
-
     def forward(self, batch:torch.Tensor) -> torch.Tensor:
         n_samples, n_channels, in_size, in_size = batch.shape
         raise NotImplementedError("Must be implemented by subclass.")
         return batch.reshape(n_samples, 1, self.out_size, self.out_size)
+
 
     def step(self, batch:Dict[str, torch.Tensor], batch_idx):
         images = batch['image']
@@ -92,69 +77,23 @@ class BaseModel(pl.LightningModule):
 
         return out
 
-    def get_hardlabels(self, out:Dict[str, Dict[str, torch.Tensor]], outmode:str) -> dict:
-        threshold = C.THRESHOLD if (outmode=='patch') else 0.5
-        preds = (out[outmode]['probas'] > threshold).float() # convert to hard labels
-        targs = (out[outmode]['targets'] > threshold).int() # convert to hard labels
-        return preds, targs
-
 
     def training_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-
-        # store loss to a logging dictionary
-        logdict = {'train/loss' : out['loss']}
-
-        # compute pixel- and patchwise predicitons/targes as hard labels
-        for outmode in self.train_metrics.keys():  
-            preds, targs = self.get_hardlabels(out, outmode)
-            preds, targs = preds.flatten(), targs.flatten() # need to flatten for metrics
-
-            # compute every metric, than add to logdict
-            for name in self.train_metrics[outmode].keys():     
-                metric_value = self.train_metrics[outmode][name](preds, targs)      # compute metric
-                logdict[f'train/{outmode}/{name}'] = metric_value               # add to logdict
-        
-        self.log_dict(logdict)
+        self.log('train/loss', out['loss'])
         return out
     
-    def train_epoch_end(self) -> None:
-        # reset every metric
-        for outmode in self.train_metrics.keys():
-            for name in self.train_metrics[outmode].keys():
-                self.train_metrics[outmode][name].reset()
-
 
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        
-        # store loss to a logging dictionary
-        logdict = {'valid/loss' : out['loss']}
-
-        # compute pixel- and patchwise predicitons/targes as hard labels
-        for outmode in self.valid_metrics.keys():  
-            preds, targs = self.get_hardlabels(out, outmode)
-            preds, targs = preds.flatten(), targs.flatten() # need to flatten for metrics
-            
-            # update every metric, computation will happen on validation_epoch_end
-            for name in self.valid_metrics[outmode].keys():     
-                self.valid_metrics[outmode][name].update(preds, targs)      # update metric
-        
-        self.log_dict(logdict)
+        self.log('valid/loss', out['loss'])
         return out
 
-    def validation_epoch_end(self, outputs) -> None:
-        logdict = {}
 
-        # for compute, log and reset every validation metric
-        for outmode in self.valid_metrics.keys():  
-            for name in self.valid_metrics[outmode].keys():
-                metric_value = self.valid_metrics[outmode][name].compute()     # compute metric
-                logdict[f'valid/{outmode}/{name}'] = metric_value               # add to logdict
-                
-                self.valid_metrics[outmode][name].reset()               
-        
-        self.log_dict(logdict)
+    def apply_threshold(self, soft_labels, outmode:str) -> Tuple[torch.Tensor, torch.Tensor]:
+        threshold = C.THRESHOLD if (outmode=='patch') else 0.5
+        hard_labels = (soft_labels > threshold).float() # convert to hard labels
+        return hard_labels
 
 
     def predict_step(self, batch:dict, batch_idx):
@@ -167,7 +106,7 @@ class BaseModel(pl.LightningModule):
             probas = self.pix2patch(probas)
 
         # get predictions
-        preds = (probas > C.THRESHOLD).int().squeeze() # remove channels
+        preds = self.apply_threshold(probas, 'patch').int().squeeze() # remove channels
 
         # get submission table
         rows = []

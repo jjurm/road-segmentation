@@ -5,7 +5,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
-from addons import SegmapVisualizer
+from torchmetrics import Accuracy, F1Score
+from addons import  SegmapVisualizer, TrainMetricLogger, ValidMetricLogger
 
 import utils as U
 from configuration import CONSTANTS as C, create_augmentation
@@ -33,22 +34,31 @@ def main(config:Configuration):
     logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
     wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
 
-    ckpt_last_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor=None,
-                            filename='epoch={epoch}-step={step}-last', auto_insert_metric_name=False)
-    ckpt_loss_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/loss', mode='min',
-                            filename='epoch={epoch}-step={step}-val_loss={valid/loss:.3f}', auto_insert_metric_name=False)
-    ckpt_f1w_patch_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/f1w', mode='max',
-                            filename='epoch={epoch}-step={step}-val_f1w={valid/patch/f1w:.3f}', auto_insert_metric_name=False)
-    ckpt_accw_patch_cb = pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/accw', mode='max',
-                            filename='epoch={epoch}-step={step}-val_accw={valid/patch/accw:.3f}', auto_insert_metric_name=False)
+    log_callbacks = [
+        TrainMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
+        ValidMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
+        SegmapVisualizer(['satimage_2', 'satimage_15', 'satimage_88', 'satimage_90', 'satimage_116']),
+    ]
 
-    smap_cb = SegmapVisualizer()
+    ckpt_callbacks = [        
+        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor=None,
+                    filename='epoch={epoch}-step={step}-last', auto_insert_metric_name=False),
+
+        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/loss', mode='min',
+                    filename='epoch={epoch}-step={step}-val_loss={valid/loss:.3f}', auto_insert_metric_name=False),
+
+        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/f1w', mode='max',
+                    filename='epoch={epoch}-step={step}-val_f1w={valid/patch/f1w:.3f}', auto_insert_metric_name=False),
+
+        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/accw', mode='max',
+                    filename='epoch={epoch}-step={step}-val_accw={valid/patch/accw:.3f}', auto_insert_metric_name=False),
+    ]
 
     # Prepare Trainer
     trainer = pl.Trainer(
         # training dynamics
         max_epochs=config.n_epochs,
-        callbacks=[ckpt_last_cb, ckpt_loss_cb, ckpt_f1w_patch_cb, ckpt_accw_patch_cb, smap_cb],
+        callbacks=log_callbacks+ckpt_callbacks,
 
         # logging
         logger=[logger, wandb],
@@ -68,7 +78,7 @@ def main(config:Configuration):
     model = create_model(config)
     print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
     #wandb.watch(model=model, log='all')
-    #print(model)
+    print(model)
 
 
     # Prepare datasets and transforms.
@@ -90,7 +100,7 @@ def main(config:Configuration):
     trainer.fit(model, train_dl, valid_dl)
 
     # Evaluate model and save submission
-    path = os.path.splitext(ckpt_last_cb.best_model_path)[0] + '.csv'
+    path = os.path.splitext(ckpt_callbacks[0].best_model_path)[0] + '.csv'
     eval(trainer, model, valid_dl, test_dl, path)
 
 
