@@ -41,15 +41,16 @@ class MetricLoggerBase(pl.Callback):
         return
 
 
-    def reset_metrics(self):
+    def reset_metrics(self, device):
+        self.metrics.to(device)
         for outmode in self.metrics.keys():  
             for name in self.metrics[outmode].keys():
                 self.metrics[outmode][name].reset()  
 
 
 class TrainMetricLogger(MetricLoggerBase):
-    def on_train_epoch_start(self, *args) -> None:
-        self.reset_metrics()
+    def on_train_epoch_start(self, trainer: pl.Trainer, model: BaseModel) -> None:
+        self.reset_metrics(model.device)
 
     def on_train_batch_end(self, trainer: pl.Trainer, model: BaseModel, out:Dict[str, Dict[str, torch.Tensor]], *args):
         logdict = {} 
@@ -70,8 +71,8 @@ class TrainMetricLogger(MetricLoggerBase):
 
 
 class ValidMetricLogger(MetricLoggerBase):
-    def on_validation_epoch_start(self, *args) -> None:
-        self.reset_metrics() 
+    def on_validation_epoch_start(self, trainer: pl.Trainer, model: BaseModel) -> None:
+        self.reset_metrics(model.device)
 
     def on_validation_batch_end(self, trainer: pl.Trainer, model: BaseModel, out:Dict[str, Dict[str, torch.Tensor]], *args):
         # compute pixel- and patchwise predicitons/targes as hard labels
