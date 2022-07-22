@@ -167,8 +167,8 @@ class SegmapVisualizer(pl.Callback):
         # log validation images depending on the model output
         if pl_module.config.model_out == 'pixel':
             imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix)
-            imgs_fp_fn_patches = self.color_fpn_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
-            imgs_fp_fn_pix = self.color_fpnfn(imgs_pred_pix, self.imgs_gt, 'pixel', pl_module)
+            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
+            imgs_fp_fn_pix = self.color_fp_fn(imgs_pred_pix, self.imgs_gt, 'pixel', pl_module)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
                 (self.imgs_gt, 'GT (pixel)'),
@@ -180,7 +180,7 @@ class SegmapVisualizer(pl.Callback):
             ]
         else:
             imgs_pred_patches = imgs_pred_pix
-            imgs_fp_fn_patches = self.color_fpn_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
+            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
                 (self.imgs_gt, 'GT (pixel)'),
