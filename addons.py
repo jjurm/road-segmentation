@@ -102,7 +102,7 @@ class SegmapVisualizer(pl.Callback):
     def __init__(self, val_images=None) -> None:
         super().__init__()
 
-    # === Qualitative feedback ===
+        # === Qualitative feedback ===
         # -- choose images --
         if val_images is None:
             val_images = ['satimage_2', 'satimage_15', 'satimage_88', 'satimage_90', 'satimage_116']
@@ -121,10 +121,38 @@ class SegmapVisualizer(pl.Callback):
         self.imgs_gt = torch.stack([transform(Image.open(path_to_gt)).type(torch.float32).repeat(3,1,1) / 255.0
             for path_to_gt in paths_to_gt])
 
+        self.upsample = torch.nn.Upsample(scale_factor=16)
+
+
     def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         self.imgs_rgb = self.imgs_rgb.to(pl_module.device)
         self.imgs_gt = self.imgs_gt.to(pl_module.device)
     
+    def color_fp_fn(self, probas, targs, outmode, model:BaseModel):
+        preds = model.apply_threshold(probas, outmode).bool()
+        targs = model.apply_threshold(targs, outmode).bool()
+
+        tp = (preds * targs) # true positive:  prediction and target are 1
+        fp = (preds > targs) # false positive: predicition is 1, target 0
+        fn = (preds < targs) # false negative: prediction is 0, target 1
+
+
+        # true positive => white
+        cmap = torch.zeros_like(probas)
+        cmap[tp] = 1
+
+        # false positive => green
+        fp[:,0,:,:] = 0     # cancel red
+        fp[:,2,:,:] = 0     # cancel blue
+        cmap[fp] = 1
+
+        # false negative => red
+        fn[:,1,:,:] = 0     # cancel green
+        fn[:,2,:,:] = 0     # cancel blue
+        cmap[fn] = 1
+
+        return cmap
+
     def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
 
         # get predictions
@@ -133,29 +161,31 @@ class SegmapVisualizer(pl.Callback):
         imgs_pred_pix = pred.repeat(1,3,1,1)
 
         # get patches from pixels and upsample to original size
-        imgs_gt_patches = pl_module.pix2patch(self.imgs_gt[:,0,:,:]).repeat(1,3,1,1)
-        upsample = torch.nn.Upsample(scale_factor=16)
-        imgs_gt_patches = upsample(imgs_gt_patches)
+        imgs_gt_patches = pl_module.pix2patch(self.imgs_gt)
         
         # log validation images depending on the model output
         if pl_module.config.model_out == 'pixel':
-            imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix[:,0,:,:]).repeat(1,3,1,1)
-            imgs_pred_patches = upsample(imgs_pred_patches)
+            imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix)
+            imgs_fp_fn_patches = self.color_fpn_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
+            imgs_fp_fn_pix = self.color_fpnfn(imgs_pred_pix, self.imgs_gt, 'pixel', pl_module)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
-                (self.imgs_gt, 'GT (pixel'),
+                (self.imgs_gt, 'GT (pixel)'),
                 (imgs_pred_pix, 'Pred (pixel)'),
-                (imgs_gt_patches, 'GT (patch)'),
-                (imgs_pred_patches, 'Pred (patch)'),
+                (imgs_fp_fn_pix, 'Error (pixel): FP green, FN red'),
+                (self.upsample(imgs_gt_patches), 'GT (patch)'),
+                (self.upsample(imgs_pred_patches), 'Pred (patch)'),
+                (self.upsample(imgs_fp_fn_patches), 'Error (patch): FP green, FN red'),
             ]
         else:
             imgs_pred_patches = imgs_pred_pix
-            imgs_pred_patches = upsample(imgs_pred_patches)
+            imgs_fp_fn_patches = self.color_fpn_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
-                (self.imgs_gt, 'GT (pixel'),
-                (imgs_gt_patches, 'GT (patch'),
-                (imgs_pred_patches, 'Pred (patch)'),
+                (self.imgs_gt, 'GT (pixel)'),
+                (self.upsample(imgs_gt_patches), 'GT (patch'),
+                (self.upsample(imgs_pred_patches), 'Pred (patch)'),
+                (self.upsample(imgs_fp_fn_patches), 'Error (patch): FP green, FN red'),
             ]
         
         # merge all pictures in 1 grid-like image

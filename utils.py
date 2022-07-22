@@ -123,8 +123,7 @@ class Pix2Patch(torch.nn.Module):
         self.num_elements = self.kernel.sum()
 
     def forward(self, pix_map:torch.Tensor) -> torch.Tensor:
-        pix_map = pix_map.reshape(-1, 1, *pix_map.shape[-2:])
-        patch_map = F.conv2d(input=pix_map,
+        patch_map = F.conv2d(input=pix_map.reshape(-1, 1, *pix_map.shape[-2:]),
                              weight=self.kernel,
                              stride=self.patch_size) / self.num_elements
         return patch_map.reshape(*pix_map.shape[:-2], *patch_map.shape[-2:])
