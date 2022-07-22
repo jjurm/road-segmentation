@@ -41,32 +41,32 @@ class SegmapVisualizer(pl.Callback):
         # get predictions
         B,_,H,W = self.imgs_rgb.shape
         pred = pl_module(self.imgs_rgb)
-        imgs_pred_pix = pred.unsqueeze(1).repeat(1,3,1,1)
+        imgs_pred_pix = pred.repeat(1,3,1,1)
 
         # get patches from pixels and upsample to original size
-        imgs_gt_patches = pl_module.pix2patch(self.imgs_gt[:,0,:,:]).unsqueeze(1).repeat(1,3,1,1)
+        imgs_gt_patches = pl_module.pix2patch(self.imgs_gt[:,0,:,:]).repeat(1,3,1,1)
         upsample = torch.nn.Upsample(scale_factor=16)
         imgs_gt_patches = upsample(imgs_gt_patches)
         
         # log validation images depending on the model output
-        if pl_module.config.model_out == 'pixels':
-            imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix[:,0,:,:]).unsqueeze(1).repeat(1,3,1,1)
+        if pl_module.config.model_out == 'pixel':
+            imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix[:,0,:,:]).repeat(1,3,1,1)
             imgs_pred_patches = upsample(imgs_pred_patches)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
-                (self.imgs_gt, 'GT (pixels'),
-                (imgs_pred_pix, 'Pred (pixels)'),
-                (imgs_gt_patches, 'GT (patches)'),
-                (imgs_pred_patches, 'Pred (patches)'),
+                (self.imgs_gt, 'GT (pixel'),
+                (imgs_pred_pix, 'Pred (pixel)'),
+                (imgs_gt_patches, 'GT (patch)'),
+                (imgs_pred_patches, 'Pred (patch)'),
             ]
         else:
             imgs_pred_patches = imgs_pred_pix
             imgs_pred_patches = upsample(imgs_pred_patches)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
-                (self.imgs_gt, 'GT (pixels'),
-                (imgs_gt_patches, 'GT (patches'),
-                (imgs_pred_patches, 'Pred (patches)'),
+                (self.imgs_gt, 'GT (pixel'),
+                (imgs_gt_patches, 'GT (patch'),
+                (imgs_pred_patches, 'Pred (patch)'),
             ]
         
         # merge all pictures in 1 grid-like image

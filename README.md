@@ -33,13 +33,13 @@ export CIL_RESULTS=$HOME/cil/results
 ## Submit Jobs
 My goal would be to store more general configs in a config/ directory and to change them with commandline parameters. For now I just run the two baseline models with defaults.
 
-`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out pixels --loss_in pixels`
+`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out pixel --loss_in pixel`
 
-`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out pixels --loss_in patches`
+`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out pixel --loss_in patch`
 
-`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out patches --loss_in patches`
+`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearConv --model_out patch --loss_in patch`
 
-`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearFC --model_out patches --loss_in patches`
+`bsub -n 4 -W 24:00 -R "rusage[mem=4096, ngpus_excl_p=1]" python train.py --model LinearFC --model_out patch --loss_in patch`
 
 
 

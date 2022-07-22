@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 
 import pytorch_lightning as pl
@@ -17,34 +18,37 @@ class BaseModel(pl.LightningModule):
 
     def __init__(self, config:Configuration):
         super().__init__()
-        if config.model_out == 'patches' and config.loss_in == 'pixels':
-            RuntimeError(f'Invalid configuration: model_out=patches, loss_in=pixels.')
 
         self.config = config
         self.loss = create_loss(config)
 
-        ## Metrics
-        self.metrics_patch = nn.ModuleDict()
-        self.metrics_patch['f1_patch'] = F1Score(num_classes=1, threshold=C.THRESHOLD)
-        self.metrics_patch['f1w_patch'] = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
-        self.metrics_patch['acc_patch'] = Accuracy(num_classes=1, threshold=C.THRESHOLD)
-        self.metrics_patch['accw_patch'] = Accuracy(num_classes=1, average='weighted', threshold=C.THRESHOLD)
-        
-        self.metrics_pixel = nn.ModuleDict()
-        if config.model_out == 'pixels':
-            self.metrics_pixel['f1_pixel'] = F1Score(num_classes=1, threshold=C.THRESHOLD)
-            self.metrics_pixel['f1w_pixel'] = F1Score(num_classes=1, average='weighted', threshold=C.THRESHOLD)
-            self.metrics_pixel['acc_pixel'] = Accuracy(num_classes=1, threshold=C.THRESHOLD)
-            self.metrics_pixel['accw_pixel'] = Accuracy(num_classes=1, average='weighted', threshold=C.THRESHOLD)
-        
+        if config.model_out == 'patch' and config.loss_in == 'pixel':
+            RuntimeError(f'Invalid configuration: model_out=patch, loss_in=pixel.')
+
+        # prepare dimensions:
+        if self.config.model_out == 'patch':
+            self.out_size = int(C.IMG_SIZE / C.PATCH_SIZE)
+
+        elif self.config.model_out == 'pixel':
+            self.out_size = C.IMG_SIZE
+
         # automatic pixel to patch transform by averaging 
         self.pix2patch = U.Pix2Patch(C.PATCH_SIZE)
 
-        # prepare dimensions:
-        if self.config.model_out == 'patches':
-            self.out_size = int(C.IMG_SIZE / C.PATCH_SIZE)
-        elif self.config.model_out == 'pixels':
-            self.out_size = C.IMG_SIZE
+        # output modes of model: for pixelwise model, also the patchwise outputs are tracked
+        self.outmodes = ['patch', 'pixel'] if (config.model_out=='pixel') else ['patch']
+
+        ## Metrics
+        # sadly can't reuse metrics: https://torchmetrics.readthedocs.io/en/latest/pages/lightning.html
+        self.train_metrics = nn.ModuleDict()
+        self.valid_metrics = nn.ModuleDict()
+        for phase_metrics in [self.train_metrics, self.valid_metrics]:
+            for outmode in self.outmodes:
+                phase_metrics[outmode] = nn.ModuleDict()
+                phase_metrics[outmode]['f1'] = F1Score(num_classes=None, multiclass=None)   #binary
+                phase_metrics[outmode]['acc'] = Accuracy(num_classes=None, multiclass=None) #binary
+                phase_metrics[outmode]['f1w'] = F1Score(num_classes=2, multiclass=True, average='weighted')   #multiclass weighted
+                phase_metrics[outmode]['accw'] = Accuracy(num_classes=2, multiclass=True, average='weighted') #multiclass weighted
 
         self.save_hyperparameters()
 
@@ -61,73 +65,96 @@ class BaseModel(pl.LightningModule):
 
     def step(self, batch:Dict[str, torch.Tensor], batch_idx):
         images = batch['image']
-        targets = batch['mask']
-
-        # sanity checks
-        # print(f'images: {images.shape}, {images.dtype}')
-        # print(f'targets: {targets.shape}, {images.dtype}, {targets.max()}')
+        targets = batch['mask'].unsqueeze(1) # get channel dimension
 
         # forward through model to obtain probabilities
         probas = self(images)
 
-        # targets always come as pixel maps
-        targets_pixel = targets.flatten()
-        targets_patch = self.pix2patch(targets).flatten()
+        # nested dict for patchwise and pixelwise prediction as output
+        out = dict([(mode, dict()) for mode in self.outmodes])      
 
-        # model output might come as pixels or as patches
-        if self.config.model_out == 'pixels': 
-            probas_pixel = probas.flatten()
-            probas_patch = self.pix2patch(probas).flatten()
-
-        else: # otherwise patches
-            probas_patch = probas.flatten()
+        # model output might come pixel- or patchwise
+        if self.config.model_out == 'pixel':
+            out['pixel']['probas'] = probas # probas are pixelwise
+            out['pixel']['targets'] = targets # targets are pixelwise
+            out['patch']['probas'] = self.pix2patch(probas)
+            out['patch']['targets'] = self.pix2patch(targets)
+        else: 
+            out['patch']['probas'] = probas # probas are patchwise
+            out['patch']['targets'] = self.pix2patch(targets) # targets are patchwise
             
 
-        # sanity checks
-        # if self.config.model_out == 'pixels': 
-        #     print(f'probas_pixel: {probas_pixel.shape}, targets_pixels: {targets_pixel.shape}')
-        # print(f'probas_patch: {probas_patch.shape}, targets_patch: {targets_patch.shape}')
-
-        out = {}
-        # compute loss either from pixel or patch with soft targets
-        if self.config.loss_in == 'pixels':
-            out['loss'] = self.loss(probas_pixel, targets_pixel)
+        # compute loss from pixel or patch with soft predictions/targets
+        if self.config.loss_in == 'pixel':
+            out['loss'] = self.loss(out['pixel']['probas'], out['pixel']['targets'])
         else:
-            out['loss'] = self.loss(probas_patch, targets_patch)
+            out['loss'] = self.loss(out['patch']['probas'], out['patch']['targets'])
 
-        # add metrics for pixel and patch with hard targets
-        for name, metric in self.metrics_pixel: # is empty for pixelwise predictions
-            out[name] = metric((probas_pixel, targets_pixel.round().int()))
-
-        for name, metric in self.metrics_patch:
-            out[name] = metric(probas_patch, (targets_patch > C.THRESHOLD).int())
-
-        
         return out
+
+    def get_hardlabels(self, out:Dict[str, Dict[str, torch.Tensor]], outmode:str) -> dict:
+        threshold = C.THRESHOLD if (outmode=='patch') else 0.5
+        preds = (out[outmode]['probas'] > threshold).float() # convert to hard labels
+        targs = (out[outmode]['targets'] > threshold).int() # convert to hard labels
+        return preds, targs
+
 
     def training_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log_dict(dict([(f'train/{k}', v) for (k,v) in out.items()]))
+
+        # store loss to a logging dictionary
+        logdict = {'train/loss' : out['loss']}
+
+        # compute pixel- and patchwise predicitons/targes as hard labels
+        for outmode in self.train_metrics.keys():  
+            preds, targs = self.get_hardlabels(out, outmode)
+            preds, targs = preds.flatten(), targs.flatten() # need to flatten for metrics
+
+            # compute every metric, than add to logdict
+            for name in self.train_metrics[outmode].keys():     
+                metric_value = self.train_metrics[outmode][name](preds, targs)      # compute metric
+                logdict[f'train/{outmode}/{name}'] = metric_value               # add to logdict
+        
+        self.log_dict(logdict)
         return out
+    
+    def train_epoch_end(self) -> None:
+        # reset every metric
+        for outmode in self.train_metrics.keys():
+            for name in self.train_metrics[outmode].keys():
+                self.train_metrics[outmode][name].reset()
 
 
-    def on_validation_epoch_start(self) -> None:
-        for name, metric in self.metrics_patch:
-            metric.reset()
-        for name, metric in self.metrics_pixel:
-            metric.reset()
-         
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log('valid/loss', out['loss']) # log only loss, f1 is accumulated over all batches
+        
+        # store loss to a logging dictionary
+        logdict = {'valid/loss' : out['loss']}
+
+        # compute pixel- and patchwise predicitons/targes as hard labels
+        for outmode in self.valid_metrics.keys():  
+            preds, targs = self.get_hardlabels(out, outmode)
+            preds, targs = preds.flatten(), targs.flatten() # need to flatten for metrics
+            
+            # update every metric, computation will happen on validation_epoch_end
+            for name in self.valid_metrics[outmode].keys():     
+                self.valid_metrics[outmode][name].update(preds, targs)      # update metric
+        
+        self.log_dict(logdict)
         return out
 
     def validation_epoch_end(self, outputs) -> None:
-        for name, metric in self.metrics_patch:
-            self.log(f'valid/{name}', metric.compute())
+        logdict = {}
 
-        for name, metric in self.metrics_pixel:
-            self.log(f'valid/{name}', metric.compute())
+        # for compute, log and reset every validation metric
+        for outmode in self.valid_metrics.keys():  
+            for name in self.valid_metrics[outmode].keys():
+                metric_value = self.valid_metrics[outmode][name].compute()     # compute metric
+                logdict[f'valid/{outmode}/{name}'] = metric_value               # add to logdict
+                
+                self.valid_metrics[outmode][name].reset()               
+        
+        self.log_dict(logdict)
 
 
     def predict_step(self, batch:dict, batch_idx):
@@ -136,7 +163,7 @@ class BaseModel(pl.LightningModule):
 
         # get probabilities
         probas = self(images)
-        if self.config.model_out == 'pixels': 
+        if self.config.model_out == 'pixel': 
             probas = self.pix2patch(probas)
 
         # get predictions

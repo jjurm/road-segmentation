@@ -103,10 +103,10 @@ class Configuration(object):
         model = parser.add_argument_group('Model')
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
-        model.add_argument('--model_out', type=str, choices={'pixels', 'patches'}, default='pixels',
-                            help='Output features of model. Some models might not support pixels.')
-        model.add_argument('--loss_in', type=str, choices={'pixels', 'patches'}, default='patches',
-                            help='Input features of loss. Pixel activations are automatically transformed to patches.')
+        model.add_argument('--model_out', type=str, choices={'pixel', 'patch'}, default='pixel',
+                            help='Output features of model. Some models might not support pixelwise.')
+        model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
+                            help='Input features of loss. Pixel activations are automatically averaged to patches.')
         model.add_argument('--loss', type=str, choices={'bce'}, default='bce', 
                             help='Type of loss for training.')
 

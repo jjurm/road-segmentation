@@ -24,7 +24,7 @@ class BaselineUNet(BaseModel):
     def __init__(self, config, chs=(3,64,128,256,512,1024)):
         super().__init__(config)
 
-        if config.model_out == 'patches':
+        if config.model_out == 'patch':
             raise RuntimeError('BaselineUNet only supports pixelwise predictions.')
 
         enc_chs = chs  # number of channels in the encoder
