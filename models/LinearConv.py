@@ -34,5 +34,5 @@ class LinearConv(BaseModel):
         batch = self.conv(batch)
         batch = torch.sigmoid(batch)
 
-        return batch.reshape(n_samples, 1, self.out_size, self.out_size)
+        return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
     
