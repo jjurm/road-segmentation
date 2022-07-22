@@ -5,12 +5,13 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
+from torchinfo import summary
 from torchmetrics import Accuracy, F1Score
-from addons import  SegmapVisualizer, TrainMetricLogger, ValidMetricLogger
 
 import utils as U
-from configuration import CONSTANTS as C, create_augmentation
-from configuration import Configuration, create_model
+from addons import SegmapVisualizer, TrainMetricLogger, ValidMetricLogger
+from configuration import CONSTANTS as C
+from configuration import Configuration, create_augmentation, create_model
 from data import SatelliteData
 from eval import eval
 
@@ -78,7 +79,6 @@ def main(config:Configuration):
     model = create_model(config)
     print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
     #wandb.watch(model=model, log='all')
-    print(model)
 
 
     # Prepare datasets and transforms.
@@ -97,6 +97,7 @@ def main(config:Configuration):
     test_dl = DataLoader(test_set, config.bs_eval, **dl_args)
     
     # Train model.
+    summary(model, input_size=(config.bs_train, 3, C.IMG_SIZE, C.IMG_SIZE), depth=6, device=model.device)
     trainer.fit(model, train_dl, valid_dl)
 
     # Evaluate model and save submission

@@ -4,3 +4,4 @@ torchvision
 albumentations
 wanbd
 matplotlib
+torch-info
