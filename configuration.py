@@ -198,7 +198,7 @@ def create_model(config:Configuration):
         from models.LinearConv import LinearConv
         return LinearConv(config)
 
-    if config.model == 'UNet':
+    if config.model == 'BaselineUNet':
         from models.baseUNet import BaselineUNet
         return BaselineUNet(config)
     
