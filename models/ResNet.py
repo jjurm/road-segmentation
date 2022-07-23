@@ -170,7 +170,7 @@ class Resnet(BaseModel):
 
         ## create decoder
         self.decoder = False
-        if config.model_out == 'pixels':
+        if config.model_out == 'pixel':
             self.decoder = FeatureListDecoder(deepcopy(self.encoder))
             self.out_channels = self.decoder.channels[-1]
         
