@@ -20,7 +20,7 @@ class LinearFC(BaseModel):
         self.in_dim = 3 * C.IMG_SIZE * C.IMG_SIZE
         self.out_dim = self.out_size * self.out_size
 
-        if self.config.model_out == 'pixels':
+        if self.config.model_out == 'pixel':
             raise RuntimeError('FC would have 3*400^4 parameters, '
             + 'i.e. ~307GB.. please use patchwise predictions instead.')
 
@@ -35,5 +35,5 @@ class LinearFC(BaseModel):
         batch = self.linear(batch)
         batch = torch.sigmoid(batch)
 
-        return batch.reshape(n_samples, self.out_size, self.out_size)
+        return batch.reshape(n_samples, 1, self.out_size, self.out_size)
     

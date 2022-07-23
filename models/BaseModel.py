@@ -1,9 +1,10 @@
+from typing import Dict, Tuple
+
 import pytorch_lightning as pl
 import torch
 from utils import Pix2Patch
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
-from torchmetrics import F1Score
 
 
 class BaseModel(pl.LightningModule):
@@ -14,21 +15,25 @@ class BaseModel(pl.LightningModule):
 
     def __init__(self, config:Configuration):
         super().__init__()
+
         self.config = config
         self.loss = create_loss(config)
-        self.f1_pixel = F1Score()
-        self.f1_patch = F1Score(threshold=C.THRESHOLD)
 
-        # prepare pix2patch transform
-        if config.model_out == 'patches' and config.loss_in == 'pixels':
-            RuntimeError(f'Invalid configuration: model_out=patches, loss_in=pixels.')
-        self.pix2patch = Pix2Patch(C.PATCH_SIZE)
+        if config.model_out == 'patch' and config.loss_in == 'pixel':
+            RuntimeError(f'Invalid configuration: model_out=patch, loss_in=pixel.')
 
         # prepare dimensions:
-        if self.config.model_out == 'patches':
+        if self.config.model_out == 'patch':
             self.out_size = int(C.IMG_SIZE / C.PATCH_SIZE)
-        elif self.config.model_out == 'pixels':
+
+        elif self.config.model_out == 'pixel':
             self.out_size = C.IMG_SIZE
+
+        # automatic pixel to patch transform by averaging 
+        self.pix2patch = Pix2Patch(C.PATCH_SIZE)
+
+        # output modes of model: for pixelwise model, also the patchwise outputs are tracked
+        self.outmodes = ['patch', 'pixel'] if (config.model_out=='pixel') else ['patch']
 
         self.save_hyperparameters()
 
@@ -37,69 +42,58 @@ class BaseModel(pl.LightningModule):
         optimizer = create_optimizer(self, self.config)
         return optimizer
 
-
-    def forward(self, batch:torch.Tensor):
+    def forward(self, batch:torch.Tensor) -> torch.Tensor:
         n_samples, n_channels, in_size, in_size = batch.shape
         raise NotImplementedError("Must be implemented by subclass.")
-        return batch.reshape(n_samples, self.out_size, self.out_size) # remove channel dim
+        return batch.reshape(n_samples, 1, self.out_size, self.out_size)
 
-    def step(self, batch:dict, batch_idx):
+
+    def step(self, batch:Dict[str, torch.Tensor], batch_idx):
         images = batch['image']
-        targets = batch['mask']
-
-        # sanity checks
-        # print(f'images: {images.shape}, {images.dtype}')
-        # print(f'targets: {targets.shape}, {images.dtype}, {targets.max()}')
+        targets = batch['mask'].unsqueeze(1) # get channel dimension
 
         # forward through model to obtain probabilities
         probas = self(images)
 
-        # targets always come as pixel maps
-        targets_pixel, targets_patch = targets, self.pix2patch(targets)
-        # model output might come as pixels or as patches
-        if self.config.model_out == 'pixels': 
-            probas_pixel, probas_patch = probas, self.pix2patch(probas)
+        # nested dict for patchwise and pixelwise prediction as output
+        out = dict([(mode, dict()) for mode in self.outmodes])      
+
+        # model output might come pixel- or patchwise
+        if self.config.model_out == 'pixel':
+            out['pixel']['probas'] = probas # probas are pixelwise
+            out['pixel']['targets'] = targets # targets are pixelwise
+            out['patch']['probas'] = self.pix2patch(probas)
+            out['patch']['targets'] = self.pix2patch(targets)
         else: 
-            probas_patch = probas # otherwise patches
+            out['patch']['probas'] = probas # probas are patchwise
+            out['patch']['targets'] = self.pix2patch(targets) # targets are patchwise
+            
 
-        # sanity checks
-        # if self.config.model_out == 'pixels': 
-        #     print(f'probas_pixel: {probas_pixel.shape}, targets_pixels: {targets_pixel.shape}')
-        # print(f'probas_patch: {probas_patch.shape}, targets_patch: {targets_patch.shape}')
-
-        out = {}
-        # compute loss either from pixel or patch with soft targets
-        if self.config.loss_in == 'pixels':
-            out['loss'] = self.loss(probas_pixel, targets_pixel)
+        # compute loss from pixel or patch with soft predictions/targets
+        if self.config.loss_in == 'pixel':
+            out['loss'] = self.loss(out['pixel']['probas'], out['pixel']['targets'])
         else:
-            out['loss'] = self.loss(probas_patch, targets_patch)
+            out['loss'] = self.loss(out['patch']['probas'], out['patch']['targets'])
 
-        # add metrics for pixel and patch with hard targets
-        if self.config.model_out == 'pixels':
-            out['f1_pixel'] = self.f1_pixel(probas_pixel, targets_pixel.int()) # TODO: do we need to round with augmentations?
-        out['f1_patch'] = self.f1_patch(probas_patch, (targets_patch > C.THRESHOLD).int())
-        
         return out
+
 
     def training_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log_dict(dict([(f'train/{k}', v) for (k,v) in out.items()]))
+        self.log('train/loss', out['loss'])
         return out
-
-
-    def on_validation_epoch_start(self) -> None:
-        self.f1_pixel.reset()
-        self.f1_patch.reset()
+    
 
     def validation_step(self, batch:dict, batch_idx):
         out = self.step(batch, batch_idx)
-        self.log('valid/loss', out['loss']) # log only loss, f1 is accumulated over all batches
+        self.log('valid/loss', out['loss'])
         return out
 
-    def validation_epoch_end(self, outputs) -> None:
-        if self.config.model_out == 'pixels':
-            self.log('valid/f1_pixel', self.f1_pixel.compute())
-        self.log('valid/f1_patch', self.f1_patch.compute())
+
+    def apply_threshold(self, soft_labels, outmode:str) -> Tuple[torch.Tensor, torch.Tensor]:
+        threshold = C.THRESHOLD if (outmode=='patch') else 0.5
+        hard_labels = (soft_labels > threshold).float() # convert to hard labels
+        return hard_labels
 
 
     def predict_step(self, batch:dict, batch_idx):
@@ -107,26 +101,19 @@ class BaseModel(pl.LightningModule):
         i_inds = batch['idx'] # image indices
 
         # get probabilities
-        probas = self(images)  
-        if self.config.model_out == 'pixels': 
+        probas = self(images)
+        if self.config.model_out == 'pixel': 
             probas = self.pix2patch(probas)
 
         # get predictions
-        preds = (probas > C.THRESHOLD).int() * 255
+        preds = self.apply_threshold(probas, 'patch').int().squeeze() # remove channels
 
-        # generate patch indices for one sample: [size, size, 2]
-        n_samples, size, _ = preds.shape
-        p_inds_W = torch.arange(0, C.IMG_SIZE, C.PATCH_SIZE, device=self.device)
-        p_inds_W = p_inds_W.expand(size, size)
-        p_inds_H = p_inds_W.transpose(0,1)
-        p_inds = torch.stack((p_inds_H, p_inds_W), -1)
+        # get submission table
+        rows = []
+        for k in range(preds.shape[0]):
+            for i in range(preds.shape[1]):
+                for j in range(preds.shape[2]):
+                    row = [i_inds[k], j*C.PATCH_SIZE, i*C.PATCH_SIZE, preds[k, i, j]]
+                    rows.append(torch.tensor(row).unsqueeze(0))
 
-        # prepare indices and preds for patch: [n_samples, size, size, ]
-        p_inds = p_inds.expand(n_samples, size, size, 2) # p_inds for every batch
-        i_inds = i_inds.reshape(n_samples, 1, 1, 1)
-        i_inds = i_inds.expand(n_samples, size, size, 1) # i_inds for every patch
-        preds = preds.unsqueeze(-1) # singelton dimension for prediction
-
-        # reshape into submission format
-        submission = torch.cat([i_inds, p_inds, preds], -1)
-        return submission.reshape(-1, 4).numpy()
+        return torch.cat(rows, dim=0)

@@ -4,3 +4,5 @@ torchvision
 albumentations
 wanbd
 timm
+matplotlib
+torch-info

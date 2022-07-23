@@ -1,0 +1,11 @@
+{
+  "bs_train": 4,
+  "bs_eval": 4,
+  "model": "BaselineUNet",
+  "aug" : "resize384",
+  "model_out": "pixel",
+  "loss_in": "pixel",
+  "loss": "bce",
+  "opt": "adam",
+  "n_epochs": 35
+}
