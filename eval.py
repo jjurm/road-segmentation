@@ -41,7 +41,8 @@ def main(config:Configuration):
     
     # Prepare Trainer
     trainer = pl.Trainer(
-        logger=log_callbacks,
+        logger=True, # use default logger
+        callbacks=log_callbacks,
 
         # acceleration
         accelerator='cpu' if config.force_cpu else 'gpu',
