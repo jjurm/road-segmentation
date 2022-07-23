@@ -1,20 +1,21 @@
-import os
 import argparse
+import os
 
 import numpy as np
-import torch
-import wandb
-
-from configuration import CONSTANTS as C
-from configuration import Configuration, create_model
 import pytorch_lightning as pl
+import torch
 from pytorch_lightning import loggers as pl_loggers
-
-from models.BaseModel import BaseModel
+from torch.utils.data import DataLoader
+from torchmetrics import Accuracy, F1Score
 
 import utils as U
+import wandb
+from addons import SegmapVisualizer, TrainMetricLogger, ValidMetricLogger
+from configuration import CONSTANTS as C
+from configuration import Configuration, create_model
 from data import SatelliteData
-from torch.utils.data import DataLoader
+from models.BaseModel import BaseModel
+
 
 def eval(trainer:pl.Trainer, 
             model:BaseModel, 
@@ -32,10 +33,15 @@ def eval(trainer:pl.Trainer,
     U.to_csv(submission.cpu(), path)
 
 def main(config:Configuration):
+
+    log_callbacks = [
+        TrainMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
+        ValidMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
+    ]
     
     # Prepare Trainer
     trainer = pl.Trainer(
-        logger=None,
+        logger=log_callbacks,
 
         # acceleration
         accelerator='cpu' if config.force_cpu else 'gpu',
