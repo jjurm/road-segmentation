@@ -2,7 +2,7 @@
     "bs_train": 8,
     "bs_eval": 8,
     "model": "Resnet18d",
-    "model_out": "pixels",
-    "loss_in": "pixels",
+    "model_out": "patch",
+    "loss_in": "patch",
     "loss": "bce"
   }

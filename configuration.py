@@ -208,9 +208,9 @@ def create_model(config:Configuration):
         from models.BaselineUNet import BaselineUNet
         return BaselineUNet(config)
 
-    if config.model[:6] == 'ResNet':
-        from models.ResNet import ResNetEncoder
-        return ResNetEncoder(config)
+    if config.model[:6] == 'Resnet':
+        from models.ResNet import Resnet
+        return Resnet(config)
 
 
     raise RuntimeError(f'Unkown model name: {config.model}')
