@@ -87,7 +87,7 @@ class Configuration(object):
                             help='Random number generator seed.')
         general.add_argument('--log_every', type=int, default=1,
                             help='Log every so many steps.')
-        general.add_argument('--force_cpu', action='store_true',
+        general.add_argument('--force_cpu', action='store_true', default=False,
                             help='Force training on CPU instead of GPU.')
 
         # Data.
@@ -103,6 +103,7 @@ class Configuration(object):
         model = parser.add_argument_group('Model')
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
+        model.add_argument('--pretrained', action='store_true', default=False)
         model.add_argument('--model_out', type=str, choices={'pixel', 'patch'}, default='pixel',
                             help='Output features of model. Some models might not support pixelwise.')
         model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
@@ -206,6 +207,11 @@ def create_model(config:Configuration):
     if config.model == 'BaselineUNet':
         from models.BaselineUNet import BaselineUNet
         return BaselineUNet(config)
+
+    if config.model[:6] == 'Resnet':
+        from models.ResNet import Resnet
+        return Resnet(config)
+
 
     raise RuntimeError(f'Unkown model name: {config.model}')
 

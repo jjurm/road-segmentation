@@ -2,7 +2,7 @@ from typing import Dict, Tuple
 
 import pytorch_lightning as pl
 import torch
-import utils as U
+from utils import Pix2Patch
 from configuration import CONSTANTS as C
 from configuration import Configuration, create_loss, create_optimizer
 
@@ -30,7 +30,7 @@ class BaseModel(pl.LightningModule):
             self.out_size = C.IMG_SIZE
 
         # automatic pixel to patch transform by averaging 
-        self.pix2patch = U.Pix2Patch(C.PATCH_SIZE)
+        self.pix2patch = Pix2Patch(C.PATCH_SIZE)
 
         # output modes of model: for pixelwise model, also the patchwise outputs are tracked
         self.outmodes = ['patch', 'pixel'] if (config.model_out=='pixel') else ['patch']
