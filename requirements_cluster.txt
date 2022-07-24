@@ -2,7 +2,7 @@ pytorch-lightning
 torchmetrics
 torchvision
 albumentations
-wanbd
 timm
 matplotlib
-torch-info
+torchinfo
+wandb
