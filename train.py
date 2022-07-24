@@ -72,8 +72,8 @@ def main(config:Configuration):
         auto_select_gpus=True,
 
         # debugging
-        limit_train_batches=2,
-        limit_val_batches=2,
+        #limit_train_batches=2,
+        #limit_val_batches=2,
         )
 
     # Create model
