@@ -15,7 +15,7 @@ class BalancedBCELoss(nn.BCELoss):
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         target_class = (target > self.threshold)
-        target_weight = target[target_class].sum() / target.numel()
+        target_weight = target[target_class].sum() / target.sum()
 
         # compute weights
         self.weight = torch.zeros_like(input)
