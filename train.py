@@ -2,11 +2,12 @@ import os
 import time
 
 import pytorch_lightning as pl
+import wandb
 from pytorch_lightning import callbacks as pl_callbacks
 from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
 from torchinfo import summary
-from torchmetrics import Accuracy, F1Score
+from torchmetrics import Accuracy, F1Score, Precision, Recall
 
 import utils as U
 from addons import SegmapVisualizer, TrainMetricLogger, ValidMetricLogger
@@ -32,12 +33,12 @@ def main(config:Configuration):
     config.jobid = os.environ.get('JOBID')
 
     # Create a logger and checkpoint file for the best model.
-    logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
-    wandb = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
+    wb_logger = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
 
     log_callbacks = [
-        TrainMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
-        ValidMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy}, weighted=True),
+        TrainMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy, 'pr': Precision, 'rec': Recall}, weighted=True),
+        ValidMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy, 'pr': Precision, 'rec': Recall}, weighted=True),
         SegmapVisualizer(['satimage_2', 'satimage_15', 'satimage_88', 'satimage_90', 'satimage_116']),
     ]
 
@@ -62,7 +63,7 @@ def main(config:Configuration):
         callbacks=log_callbacks+ckpt_callbacks,
 
         # logging
-        logger=[logger, wandb],
+        logger=[tb_logger, wb_logger],
         log_every_n_steps=config.log_every,
 
         # acceleration
@@ -71,8 +72,8 @@ def main(config:Configuration):
         auto_select_gpus=True,
 
         # debugging
-        #limit_train_batches=2,
-        #limit_val_batches=2,
+        limit_train_batches=2,
+        limit_val_batches=2,
         )
 
     # Create model
@@ -101,8 +102,14 @@ def main(config:Configuration):
     trainer.fit(model, train_dl, valid_dl)
 
     # Evaluate model and save submission
-    path = os.path.splitext(ckpt_callbacks[0].best_model_path)[0] + '.csv'
-    eval(trainer, model, valid_dl, test_dl, path)
+    for ckpt_cb in ckpt_callbacks:
+        ckpt_path = ckpt_cb.best_model_path
+        csv_path = os.path.splitext(ckpt_path)[0] + '.csv'
+
+        print(f'Evaluating checkpoint {ckpt_path}')
+        model = type(model).load_from_checkpoint(ckpt_path)
+        eval(trainer, model, valid_dl, test_dl, csv_path)
+        wandb.save(csv_path)
 
 
 if __name__ == '__main__':
