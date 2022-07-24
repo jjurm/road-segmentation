@@ -1,19 +1,20 @@
 import os
 from typing import Dict, Type
+
 import pytorch_lightning as pl
-from sklearn import metrics
 import torch
-import wandb
-
-from configuration import CONSTANTS as C
 import torchvision.transforms as transforms
+import wandb
 from PIL import Image
-from models.BaseModel import BaseModel
-
-import utils as U
-import torch
+from pytorch_lightning import loggers as pl_loggers
+from sklearn import metrics
 from torch import nn
 from torchmetrics import Metric
+
+import utils as U
+from configuration import CONSTANTS as C
+from models.BaseModel import BaseModel
+
 
 class MetricLoggerBase(pl.Callback):
     '''
@@ -154,21 +155,21 @@ class SegmapVisualizer(pl.Callback):
 
         return cmap
 
-    def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+    def on_validation_epoch_end(self, trainer: "pl.Trainer", model: BaseModel) -> None:
 
         # get predictions
         B,_,H,W = self.imgs_rgb.shape
-        pred = pl_module(self.imgs_rgb)
+        pred = model(self.imgs_rgb)
         imgs_pred_pix = pred.repeat(1,3,1,1)
 
         # get patches from pixels and upsample to original size
-        imgs_gt_patches = pl_module.pix2patch(self.imgs_gt)
+        imgs_gt_patches = model.pix2patch(self.imgs_gt)
         
         # log validation images depending on the model output
-        if pl_module.config.model_out == 'pixel':
-            imgs_pred_patches = pl_module.pix2patch(imgs_pred_pix)
-            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
-            imgs_fp_fn_pix = self.color_fp_fn(imgs_pred_pix, self.imgs_gt, 'pixel', pl_module)
+        if model.config.model_out == 'pixel':
+            imgs_pred_patches = model.pix2patch(imgs_pred_pix)
+            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', model)
+            imgs_fp_fn_pix = self.color_fp_fn(imgs_pred_pix, self.imgs_gt, 'pixel', model)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
                 (self.imgs_gt, 'GT (pixel)'),
@@ -192,6 +193,7 @@ class SegmapVisualizer(pl.Callback):
         # merge all pictures in 1 grid-like image
         vis = U.compose(visualization_plan)
 
-        wandb.log({
-            'val_pred': [wandb.Image(vis.cpu(), caption="Validation results")]
-        })
+        for wb_logger in model.loggers:
+            if not isinstance(wb_logger, pl_loggers.WandbLogger):
+                continue
+            wb_logger.log_image('val_pred', images=[vis], caption=["Validation results"])
