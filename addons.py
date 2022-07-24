@@ -126,9 +126,9 @@ class SegmapVisualizer(pl.Callback):
         self.upsample = torch.nn.Upsample(scale_factor=16)
 
 
-    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        self.imgs_rgb = self.imgs_rgb.to(pl_module.device)
-        self.imgs_gt = self.imgs_gt.to(pl_module.device)
+    def on_fit_start(self, trainer: "pl.Trainer", model: BaseModel) -> None:
+        self.imgs_rgb = self.imgs_rgb.to(model.device)
+        self.imgs_gt = self.imgs_gt.to(model.device)
     
     def color_fp_fn(self, probas, targs, outmode, model:BaseModel):
         preds = model.apply_threshold(probas, outmode).bool()
@@ -181,7 +181,7 @@ class SegmapVisualizer(pl.Callback):
             ]
         else:
             imgs_pred_patches = imgs_pred_pix
-            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', pl_module)
+            imgs_fp_fn_patches = self.color_fp_fn(imgs_pred_patches, imgs_gt_patches, 'patch', model)
             visualization_plan = [
                 (self.imgs_rgb, self.rgb_tags),
                 (self.imgs_gt, 'GT (pixel)'),
