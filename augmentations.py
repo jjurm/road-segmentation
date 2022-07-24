@@ -4,6 +4,9 @@ import os
 from tqdm import tqdm
 import numpy as np
 
+def resize384():
+    return A.Resize(384, 384)
+
 def aug_with_crop(image_size = 256, crop_prob = 1):
     return A.Compose([
         A.RandomCrop(width = image_size, height = image_size, p=crop_prob),
