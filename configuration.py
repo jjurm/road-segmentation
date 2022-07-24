@@ -108,7 +108,7 @@ class Configuration(object):
                             help='Output features of model. Some models might not support pixelwise.')
         model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
                             help='Input features of loss. Pixel activations are automatically averaged to patches.')
-        model.add_argument('--loss', type=str, choices={'bce'}, default='bce', 
+        model.add_argument('--loss', type=str, choices={'bce', 'bbce'}, default='bce', 
                             help='Type of loss for training.')
 
         
@@ -223,6 +223,11 @@ def create_loss(config:Configuration):
     '''
     if config.loss == 'bce':
         return torch.nn.BCELoss()
+    
+    if config.loss == 'bbce':
+        from losses import BalancedBCELoss
+        thresh = CONSTANTS.THRESHOLD if (config.loss_in == 'patch') else 0.5
+        return BalancedBCELoss(threshold=thresh)
 
     raise RuntimeError(f'Unkown loss name: {config.loss}')
 
