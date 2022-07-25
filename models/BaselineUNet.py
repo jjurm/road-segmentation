@@ -48,7 +48,7 @@ class BaselineUNet(BaseModel):
             x = self.pool(x)  # decrease resolution
         x = self.enc_blocks[-1](x)
         # decode
-        if self.config.model_out == 'patch':
+        if self.config.model_out == 'pixel':
             for block, upconv, feature in zip(self.dec_blocks, self.upconvs, enc_features[::-1]):
                 x = upconv(x)  # increase resolution
                 x = torch.cat([x, feature], dim=1)  # concatenate skip features
