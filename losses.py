@@ -19,7 +19,7 @@ class BalancedBCELoss(nn.BCELoss):
 
         # compute weights
         self.weight = torch.zeros_like(input)
-        self.weight[target_class] = target_weight
-        self.weight[~target_class] = 1 - target_weight
+        self.weight[target_class] = 1 - target_weight   # invert weight of class to rebalance
+        self.weight[~target_class] = target_weight      # invert weight of class to rebalance
         return F.binary_cross_entropy(input, target, weight=self.weight, reduction=self.reduction)
 
