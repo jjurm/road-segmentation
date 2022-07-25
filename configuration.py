@@ -110,6 +110,8 @@ class Configuration(object):
                             help='Input features of loss. Pixel activations are automatically averaged to patches.')
         model.add_argument('--loss', type=str, choices={'bce', 'bbce'}, default='bce', 
                             help='Type of loss for training.')
+        model.add_argument('--bbce_alpha', type=float, default=None,
+                            help='Dataset imbalance ratio, estimated batchwise by default.')
 
         
         # Training configurations.        
@@ -227,7 +229,7 @@ def create_loss(config:Configuration):
     if config.loss == 'bbce':
         from losses import BalancedBCELoss
         thresh = CONSTANTS.THRESHOLD if (config.loss_in == 'patch') else 0.5
-        return BalancedBCELoss(threshold=thresh)
+        return BalancedBCELoss(alpha=config.bbce_alpha, threshold=thresh)
 
     raise RuntimeError(f'Unkown loss name: {config.loss}')
 
