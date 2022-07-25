@@ -108,10 +108,12 @@ class Configuration(object):
                             help='Output features of model. Some models might not support pixelwise.')
         model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
                             help='Input features of loss. Pixel activations are automatically averaged to patches.')
-        model.add_argument('--loss', type=str, choices={'bce', 'bbce'}, default='bce', 
+        model.add_argument('--loss', type=str, choices={'bce', 'bbce', 'focal'}, default='bce', 
                             help='Type of loss for training.')
         model.add_argument('--bbce_alpha', type=float, default=None,
                             help='Dataset imbalance ratio, estimated batchwise by default.')
+        model.add_argument('--focal_gamma', type=float, default=2,
+                            help='Focus factor of focal loss, the paper proposes gamma=2.')
 
         
         # Training configurations.        
@@ -230,6 +232,11 @@ def create_loss(config:Configuration):
         from losses import BalancedBCELoss
         thresh = CONSTANTS.THRESHOLD if (config.loss_in == 'patch') else 0.5
         return BalancedBCELoss(alpha=config.bbce_alpha, threshold=thresh)
+
+    if config.loss == 'focal':
+        from losses import FocalLoss
+        thresh = CONSTANTS.THRESHOLD if (config.loss_in == 'patch') else 0.5
+        return FocalLoss(gamma=config.focal_gamma, alpha=config.bbce_alpha, threshold=thresh)
 
     raise RuntimeError(f'Unkown loss name: {config.loss}')
 
