@@ -15,10 +15,10 @@ class BalancedBCELoss(nn.BCELoss):
         alpha = self.alpha or target_class.sum() / target_class.numel()
         
         # compute weights
-        self.weight = torch.zeros_like(input)
-        self.weight[target_class] = 1 - alpha   # invert weight of class to rebalance
-        self.weight[~target_class] = alpha      # invert weight of class to rebalance
-        return F.binary_cross_entropy(input, target, weight=self.weight, reduction=self.reduction)
+        weight = torch.zeros_like(input)
+        weight[target_class] = 1 - alpha   # invert weight of class to rebalance
+        weight[~target_class] = alpha      # invert weight of class to rebalance
+        return F.binary_cross_entropy(input, target, weight=weight, reduction=self.reduction)
 
 
 class FocalLoss(nn.Module):
@@ -33,10 +33,10 @@ class FocalLoss(nn.Module):
         alpha = self.alpha or target_class.sum() / target_class.numel()
 
         # compute weights
-        self.weight = torch.zeros_like(input)
-        self.weight[target_class] = 1 - alpha   # invert weight of class to rebalance
-        self.weight[~target_class] = alpha      # invert weight of class to rebalance
+        weight = torch.zeros_like(input)
+        weight[target_class] = 1 - alpha   # invert weight of class to rebalance
+        weight[~target_class] = alpha      # invert weight of class to rebalance
         
         ce_terms =( -(1-input).pow(self.gamma) * (  target) * torch.clamp(torch.log(  input), min=-100) 
                     -(  input).pow(self.gamma) * (1-target) * torch.clamp(torch.log(1-input), min=-100))
-        return torch.sum(self.weight * ce_terms)
+        return torch.sum(weight * ce_terms)
