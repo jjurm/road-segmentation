@@ -40,8 +40,8 @@ class BaseModel(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        optimizer = create_optimizer(self, self.config)
-        return optimizer
+        t_opt, kwargs = create_optimizer(self.config)
+        return t_opt(self.parameters(), **kwargs)
 
     def forward(self, batch:torch.Tensor) -> torch.Tensor:
         n_samples, n_channels, in_size, in_size = batch.shape
