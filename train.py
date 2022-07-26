@@ -78,7 +78,15 @@ def main(config:Configuration):
 
     # Create model
     model = create_model(config)
-    print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
+    if config.ckpt:
+        model = model.load_from_checkpoint(
+            checkpoint_path=config.ckpt,
+            config=config,
+            loss=model.loss,
+        )
+        print('Model restored from "{}" with {} trainable parameters'.format(config.ckpt, U.count_parameters(model)))
+    else:
+        print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
     #wandb.watch(model=model, log='all')
 
 

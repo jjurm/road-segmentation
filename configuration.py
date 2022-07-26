@@ -104,6 +104,8 @@ class Configuration(object):
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
         model.add_argument('--pretrained', action='store_true', default=False)
+        model.add_argument('--ckpt', type=str, default=None,
+                           help="Continue training a model from the given .ckpt file")
         model.add_argument('--model_out', type=str, choices={'pixel', 'patch'}, default='pixel',
                             help='Output features of model. Some models might not support pixelwise.')
         model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
