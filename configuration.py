@@ -226,7 +226,7 @@ def create_loss(config:Configuration):
     choose from via the command line.
     '''
     if config.loss == 'bce':
-        return torch.nn.BCELoss()
+        return torch.nn.BCEWithLogitsLoss()
     
     if config.loss == 'bbce':
         from losses import BalancedBCELoss

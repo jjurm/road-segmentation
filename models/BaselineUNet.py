@@ -31,9 +31,11 @@ class BaselineUNet(BaseModel):
             dec_chs = chs[::-1][:-1]  # number of channels in the decoder
             self.upconvs = nn.ModuleList([nn.ConvTranspose2d(in_ch, out_ch, 2, 2) for in_ch, out_ch in zip(dec_chs[:-1], dec_chs[1:])])  # deconvolution
             self.dec_blocks = nn.ModuleList([Block(in_ch, out_ch) for in_ch, out_ch in zip(dec_chs[:-1], dec_chs[1:])])  # decoder blocks
-            self.head = nn.Sequential(nn.Conv2d(dec_chs[-1], 1, 1), nn.Sigmoid()) # 1x1 convolution for producing the output
+            self.head = nn.Sequential(nn.Conv2d(dec_chs[-1], 1, 1)) # 1x1 convolution for producing the output
+            # => Sequential for backward compatibility, when loading checkpoints
         else:
-            self.head = nn.Sequential(nn.Conv2d(enc_chs[-1], 1, 1), nn.Sigmoid()) # 1x1 convolution for producing the output
+            self.head = nn.Sequential(nn.Conv2d(enc_chs[-1], 1, 1)) # 1x1 convolution for producing the output
+            # => Sequential for backward compatibility, when loading checkpoints
 
         
 

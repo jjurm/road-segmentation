@@ -32,7 +32,6 @@ class LinearConv(BaseModel):
         n_samples, n_channels, in_size, in_size = batch.shape
         # forward through linear conv layer
         batch = self.conv(batch)
-        batch = torch.sigmoid(batch)
 
         return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
     

@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 
 
-class BalancedBCELoss(nn.BCELoss):
+class BalancedBCELoss(nn.BCEWithLogitsLoss):
     def __init__(self, alpha = None, threshold: float = 0.5, reduction: str = 'mean') -> None:
         super().__init__(reduction=reduction)
         self.threshold = threshold
@@ -18,7 +18,7 @@ class BalancedBCELoss(nn.BCELoss):
         weight = torch.zeros_like(input)
         weight[target_class] = 1 - alpha   # invert weight of class to rebalance
         weight[~target_class] = alpha      # invert weight of class to rebalance
-        return F.binary_cross_entropy(input, target, weight=weight, reduction=self.reduction)
+        return F.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=self.reduction)
 
 
 class FocalLoss(nn.Module):
@@ -36,7 +36,10 @@ class FocalLoss(nn.Module):
         weight = torch.zeros_like(input)
         weight[target_class] = 1 - alpha   # invert weight of class to rebalance
         weight[~target_class] = alpha      # invert weight of class to rebalance
-        
-        ce_terms =( -(1-input).pow(self.gamma) * (  target) * torch.clamp(torch.log(  input), min=-100) 
-                    -(  input).pow(self.gamma) * (1-target) * torch.clamp(torch.log(1-input), min=-100))
+
+        log_preds = F.log_softmax(input)
+        preds = torch.exp(log_preds)
+
+        ce_terms = -((1-preds).pow(self.gamma) * (  target) * log_preds 
+                     + (preds).pow(self.gamma) * (1-target) * log_preds)
         return torch.sum(weight * ce_terms)

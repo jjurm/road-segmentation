@@ -31,6 +31,7 @@ class BaseModel(pl.LightningModule):
 
         # automatic pixel to patch transform by averaging 
         self.pix2patch = Pix2Patch(C.PATCH_SIZE)
+        self.sigmoid = torch.nn.Sigmoid()
 
         # output modes of model: for pixelwise model, also the patchwise outputs are tracked
         self.outmodes = ['patch', 'pixel'] if (config.model_out=='pixel') else ['patch']
@@ -52,28 +53,32 @@ class BaseModel(pl.LightningModule):
         images = batch['image']
         targets = batch['mask'].unsqueeze(1) # get channel dimension
 
-        # forward through model to obtain probabilities
-        probas = self(images)
+        # forward through model to obtain logits and probabilities
+        logits = self(images)
+        probas = self.sigmoid(logits)
 
         # nested dict for patchwise and pixelwise prediction as output
         out = dict([(mode, dict()) for mode in self.outmodes])      
 
         # model output might come pixel- or patchwise
         if self.config.model_out == 'pixel':
+            out['pixel']['logits'] = logits # logits are pixelwise
             out['pixel']['probas'] = probas # probas are pixelwise
             out['pixel']['targets'] = targets # targets are pixelwise
             out['patch']['probas'] = self.pix2patch(probas)
+            out['patch']['logits'] = torch.logit(out['patch']['probas']) # not very nice... but if loss takes logits, we need to :/
             out['patch']['targets'] = self.pix2patch(targets)
         else: 
+            out['patch']['logits'] = logits # logits are patchwise
             out['patch']['probas'] = probas # probas are patchwise
             out['patch']['targets'] = self.pix2patch(targets) # targets are patchwise
             
 
         # compute loss from pixel or patch with soft predictions/targets
         if self.config.loss_in == 'pixel':
-            out['loss'] = self.loss(out['pixel']['probas'], out['pixel']['targets'])
+            out['loss'] = self.loss(out['pixel']['logits'], out['pixel']['targets'])
         else:
-            out['loss'] = self.loss(out['patch']['probas'], out['patch']['targets'])
+            out['loss'] = self.loss(out['patch']['logits'], out['patch']['targets'])
 
         return out
 
@@ -101,7 +106,7 @@ class BaseModel(pl.LightningModule):
         i_inds = batch['idx'] # image indices
 
         # get probabilities
-        probas = self(images)
+        probas = self.sigmoid(self(images))
         if self.config.model_out == 'pixel': 
             probas = self.pix2patch(probas)
 
