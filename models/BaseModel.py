@@ -20,7 +20,7 @@ class BaseModel(pl.LightningModule):
         self.loss = create_loss(config)
 
         if config.model_out == 'patch' and config.loss_in == 'pixel':
-            RuntimeError(f'Invalid configuration: model_out=patch, loss_in=pixel.')
+            raise RuntimeError(f'Invalid configuration: model_out=patch, loss_in=pixel.')
 
         # prepare dimensions:
         if self.config.model_out == 'patch':

@@ -37,7 +37,7 @@ class FocalLoss(nn.Module):
         weight[target_class] = 1 - alpha   # invert weight of class to rebalance
         weight[~target_class] = alpha      # invert weight of class to rebalance
 
-        log_preds = F.log_softmax(input)
+        log_preds = F.logsigmoid(input)
         preds = torch.exp(log_preds)
 
         ce_terms = -((1-preds).pow(self.gamma) * (  target) * log_preds 
