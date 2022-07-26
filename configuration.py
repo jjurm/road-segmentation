@@ -231,7 +231,8 @@ def create_loss(config:Configuration):
     if config.loss == 'bbce':
         from losses import BalancedBCELoss
         thresh = CONSTANTS.THRESHOLD if (config.loss_in == 'patch') else 0.5
-        return BalancedBCELoss(alpha=config.bbce_alpha, threshold=thresh)
+        alpha = config.bbce_alpha if 'bbce_alpha' in config.__dict__ else None # backwards compatibility
+        return BalancedBCELoss(alpha=alpha, threshold=thresh)
 
     if config.loss == 'focal':
         from losses import FocalLoss
