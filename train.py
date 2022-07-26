@@ -79,6 +79,9 @@ def main(config:Configuration):
     # Create model
     model = create_model(config)
     print('Model created with {} trainable parameters'.format(U.count_parameters(model)))
+    if config.load_model is not None:
+        model = type(model).load_from_checkpoint(config.load_model, kwargs=config)
+        print('Model\'s weights successfully loaded from checkpoint')
     #wandb.watch(model=model, log='all')
 
 

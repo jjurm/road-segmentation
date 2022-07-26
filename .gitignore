@@ -163,3 +163,7 @@ cython_debug/
 .vscode
 
 results/
+
+data/
+additional-data/
+testing-aug/

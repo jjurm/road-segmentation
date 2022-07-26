@@ -89,6 +89,8 @@ class Configuration(object):
                             help='Log every so many steps.')
         general.add_argument('--force_cpu', action='store_true', default=False,
                             help='Force training on CPU instead of GPU.')
+        general.add_argument('--load_model', type=str, default=None,
+                            help='Load model from given checkpoint.')
 
         # Data.
         data = parser.add_argument_group('Data')
