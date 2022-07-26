@@ -92,6 +92,12 @@ class Configuration(object):
 
         # Data.
         data = parser.add_argument_group('Data')
+        data.add_argument('--train_dir', type=str, default='gmaps',
+                          help='Training dataset directory name under $CIL_DATA')
+        data.add_argument('--valid_dir', type=str, default='training',
+                          help='Validation dataset directory name under $CIL_DATA')
+        data.add_argument('--test_dir', type=str, default='test',
+                          help='Test dataset directory name under $CIL_DATA')
         data.add_argument('--bs_train', type=int, default=16, 
                             help='Batch size for the training set.')
         data.add_argument('--bs_eval', type=int, default=16, 
