@@ -55,8 +55,8 @@ def main(config:Configuration):
         )
 
     # TODO: use augmentations?
-    valid_set = SatelliteData('training', config)
-    test_set = SatelliteData('test', config, train=False)
+    valid_set = SatelliteData(config.valid_dir, config)
+    test_set = SatelliteData(config.test_dir, config, train=False)
     print(f'Init {type(valid_set).__name__}: size(valid)={len(valid_set)}, size(test)={len(test_set)}')
 
     # Prepare datasets and dataloaders
