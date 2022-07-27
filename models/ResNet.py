@@ -185,8 +185,11 @@ class Resnet(BaseModel):
 
     def on_train_epoch_start(self) -> None:
         if self.current_epoch == self.config.freeze_epochs:
-            param_group = dict(params=self.encoder.parameters())
-            self.optimizers().add_param_group(param_group)
+            t_opt, kwargs = create_optimizer(self.config)
+            self.trainer.optimizers = [t_opt(self.parameters(), **kwargs)]
+            #self.optimizers().param_groups.clear() # remove all param_groups
+            #param_group = dict(params=self.parameters()) # add all parameters
+            #self.optimizers().add_param_group(param_group)
         return 
 
     def forward(self, batch: torch.Tensor):
