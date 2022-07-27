@@ -70,6 +70,7 @@ def main(config:Configuration):
         accelerator='cpu' if config.force_cpu else 'gpu',
         devices=None if config.force_cpu else 1,
         auto_select_gpus=True,
+        precision=config.precision,
 
         # debugging
         #limit_train_batches=2,

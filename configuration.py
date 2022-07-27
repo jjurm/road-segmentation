@@ -130,6 +130,8 @@ class Configuration(object):
                             help='Learning rate for optimizer.')
         training.add_argument('--wd', type=float, default=None, 
                             help='Weight decay for optimizer.')
+        training.add_argument('--precision', type=int, default=32,
+                              help='Precision bits for floating points during training')
 
         return parser
     
