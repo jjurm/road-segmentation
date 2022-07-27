@@ -98,8 +98,8 @@ class Configuration(object):
                             help='Batch size for the training set.')
         data.add_argument('--bs_eval', type=int, default=16, 
                             help='Batch size for valid/test set.')
-        data.add_argument('--aug', type=str, default=None,
-                            help='Name of augmentation to apply to training data.')
+        data.add_argument('--aug', type=str, nargs='*', default=[],
+                            help='List of named augmentations to apply to training data.')
 
         # Model.
         model = parser.add_argument_group('Model')
@@ -258,18 +258,39 @@ def create_augmentation(config:Configuration):
     choose from via the command line.
     '''
 
-    if config.aug is None or config.aug == '':
-        from albumentations import NoOp
-        return NoOp()
+    from albumentations import NoOp
+    transforms = [NoOp()]
 
-    if config.aug == 'aug_with_crop':
-        from augmentations import aug_with_crop
-        return aug_with_crop()
+    # iterate through list and add totransforms
+    for aug_spec in config.aug:
 
-    if config.aug == 'aug_without_crop':
-        from augmentations import aug_without_crop
-        return aug_without_crop()
+        if aug_spec == 'aug_with_crop':
+            from augmentations import aug_with_crop
+            transforms.append(aug_with_crop())
+            continue
 
-    if config.aug =='resize384':
-        from augmentations import resize384
-        return resize384()
+        if aug_spec == 'aug_without_crop':
+            from augmentations import aug_without_crop
+            transforms.append(aug_without_crop())
+            continue
+
+        if aug_spec == 'resize384':
+            from augmentations import resize
+            transforms.append(resize(384))
+            continue
+
+        if aug_spec == 'crop128':
+            from augmentations import crop
+            transforms.append(crop(128))
+            continue
+
+        if aug_spec == 'crop256':
+            from augmentations import crop
+            transforms.append(crop(256))
+            continue
+        
+        if aug_spec != '':  # fall through case
+            raise RuntimeError(f'Unknown augmentations {aug_spec}')
+
+    from albumentations import Compose
+    return Compose(transforms)
