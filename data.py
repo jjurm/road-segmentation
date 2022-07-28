@@ -40,6 +40,7 @@ class SatelliteData(torch.utils.data.Dataset):
         self.train = train
         self.transform = transform
         self.to_tensor = ToTensorV2()
+        self.to_float_dual = U.ToFloatDual()
 
         # get dataset filnames
         self.fnames_im = U.get_filenames(dataset, 'images')
@@ -68,11 +69,13 @@ class SatelliteData(torch.utils.data.Dataset):
         it = self.transform(**it)
 
         if self.config.normalize:
-            filepath = os.path.split(self.fnames_im[item])[0]
+            filepath = os.path.split(self.fnames_im[item])[-1]
             basename = '_'.join(filepath.split('_')[:-1]) 
-            it['image'] = F.normalize(stats[basename]['mean'], stats[basename]['std'])
-        
-        it['mask'] = F.to_float(it['mask'])
+            it['image'] = F.normalize(it['image'], stats[basename]['mean'], stats[basename]['std'])
+            it['mask'] = F.to_float(it['mask'])
+        else:
+            it = self.to_float_dual(**it)
+
         return self.to_tensor(**it)
 
     def __len__(self):
