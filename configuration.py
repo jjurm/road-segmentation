@@ -102,9 +102,9 @@ class Configuration(object):
                           help='Validation dataset directory name under $CIL_DATA')
         data.add_argument('--test_dir', type=str, default='test',
                           help='Test dataset directory name under $CIL_DATA')
-        data.add_argument('--bs_train', type=int, default=16, 
+        data.add_argument('--bs_train', type=int, default=8, 
                             help='Batch size for the training set.')
-        data.add_argument('--bs_eval', type=int, default=16, 
+        data.add_argument('--bs_eval', type=int, default=8, 
                             help='Batch size for valid/test set.')
         data.add_argument('--normalize', action='store_true', default=False)
         data.add_argument('--aug', type=str, nargs='*', default=[],
