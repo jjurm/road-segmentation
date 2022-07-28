@@ -167,3 +167,5 @@ results/
 data/
 additional-data/
 testing-aug/
+submissions_to_ensemble/
+best_checkpoints/

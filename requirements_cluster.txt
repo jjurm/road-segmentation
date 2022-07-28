@@ -6,3 +6,4 @@ timm
 matplotlib
 torchinfo
 wandb
+python-dotenv
