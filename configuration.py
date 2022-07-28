@@ -295,6 +295,11 @@ def create_augmentation(config:Configuration):
     # iterate through list and add totransforms
     for aug_spec in config.aug:
 
+        if aug_spec == 'all_augs':
+            from augmentations import all_augs
+            transforms.append(all_augs())
+            continue
+
         if aug_spec == 'aug_with_crop':
             from augmentations import aug_with_crop
             transforms.append(aug_with_crop())
