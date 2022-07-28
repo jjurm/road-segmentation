@@ -17,7 +17,7 @@ class LinearConv(BaseModel):
         super().__init__(config)
 
         # prepare model
-        if config.model_out == 'patches':
+        if config.model_out == 'patch':
             self.kernel_size = C.PATCH_SIZE
         else:
             self.kernel_size = 1 
@@ -32,7 +32,6 @@ class LinearConv(BaseModel):
         n_samples, n_channels, in_size, in_size = batch.shape
         # forward through linear conv layer
         batch = self.conv(batch)
-        batch = torch.sigmoid(batch)
 
         return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
     

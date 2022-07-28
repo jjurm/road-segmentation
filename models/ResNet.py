@@ -175,7 +175,6 @@ class Resnet(BaseModel):
             self.out_channels = self.decoder.channels[-1]
         
         self.head = nn.Conv2d(self.out_channels, 1, 1)
-        self.sigmoid = nn.Sigmoid()
 
 
     def forward(self, batch: torch.Tensor):
@@ -188,7 +187,6 @@ class Resnet(BaseModel):
             batch = batch[-1] # last feature from pyramid
 
         batch = self.head(batch)
-        batch = self.sigmoid(batch)
         return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
 
     

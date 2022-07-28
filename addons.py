@@ -4,10 +4,8 @@ from typing import Dict, Type
 import pytorch_lightning as pl
 import torch
 import torchvision.transforms as transforms
-import wandb
 from PIL import Image
 from pytorch_lightning import loggers as pl_loggers
-from sklearn import metrics
 from torch import nn
 from torchmetrics import Metric
 
@@ -160,7 +158,7 @@ class SegmapVisualizer(pl.Callback):
 
         # get predictions
         B,_,H,W = self.imgs_rgb.shape
-        pred = model(self.imgs_rgb)
+        pred = model.sigmoid(model(self.imgs_rgb))
         imgs_pred_pix = pred.repeat(1,3,1,1)
 
         # get patches from pixels and upsample to original size

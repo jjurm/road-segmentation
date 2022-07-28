@@ -33,7 +33,6 @@ class LinearFC(BaseModel):
         # forward through linear layer
         batch = batch.reshape(n_samples, -1)
         batch = self.linear(batch)
-        batch = torch.sigmoid(batch)
 
         return batch.reshape(n_samples, 1, self.out_size, self.out_size)
     
