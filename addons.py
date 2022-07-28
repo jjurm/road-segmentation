@@ -109,6 +109,7 @@ class SegmapVisualizer(pl.Callback):
 
         # get path to images
         self.rgb_tags = [val_image + ".png" for val_image in val_images]
+        # using the 'training' directory regardless of config.train_dir on purpose
         paths_to_img = [os.path.join(C.DATA_DIR, 'training', 'images', rgb_tag) for rgb_tag in self.rgb_tags]
         paths_to_gt = [os.path.join(C.DATA_DIR, 'training', 'groundtruth', rgb_tag) for rgb_tag in self.rgb_tags]
 

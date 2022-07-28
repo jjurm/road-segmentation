@@ -4,8 +4,15 @@ import os
 from tqdm import tqdm
 import numpy as np
 
-def resize384():
-    return A.Resize(384, 384)
+def resize(size=384):
+    return A.Resize(size, size)
+
+def crop(size):
+    return A.Compose([
+        A.RandomScale(scale_limit=(-0.1, 0.1)),
+        A.CropNonEmptyMaskIfExists(height=size, width=size)
+    ])
+
 
 def aug_with_crop(image_size = 256, crop_prob = 1):
     return A.Compose([
