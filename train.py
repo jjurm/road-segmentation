@@ -65,6 +65,7 @@ def main(config:Configuration):
         # logging
         logger=[tb_logger, wb_logger],
         log_every_n_steps=config.log_every,
+        check_val_every_n_epoch=config.val_every,
 
         # acceleration
         accelerator='cpu' if config.force_cpu else 'gpu',

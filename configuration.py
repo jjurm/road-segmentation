@@ -87,6 +87,8 @@ class Configuration(object):
                             help='Random number generator seed.')
         general.add_argument('--log_every', type=int, default=1,
                             help='Log every so many steps.')
+        general.add_argument('--val_every', type=int, default=1,
+                             help='Check val every n train epochs')
         general.add_argument('--force_cpu', action='store_true', default=False,
                             help='Force training on CPU instead of GPU.')
         general.add_argument('--load_model', type=str, default=None,
