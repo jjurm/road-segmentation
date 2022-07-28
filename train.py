@@ -34,7 +34,10 @@ def main(config:Configuration):
 
     # Create a logger and checkpoint file for the best model.
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=C.RESULTS_DIR, name=log_id, version='tensorboard')
-    wb_logger = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
+    if config.run_name is not None:
+        wb_logger = pl_loggers.WandbLogger(name=config.run_name, save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
+    else:
+        wb_logger = pl_loggers.WandbLogger(save_dir=C.RESULTS_DIR, config=config, project='CIL', entity='geesesquad')
 
     log_callbacks = [
         TrainMetricLogger(model_out=config.model_out, t_metrics={'f1':F1Score, 'acc':Accuracy, 'pr': Precision, 'rec': Recall}, weighted=True),

@@ -81,6 +81,8 @@ class Configuration(object):
 
         # General.
         general = parser.add_argument_group('General')
+        general.add_argument('--name', type=str, default=None, 
+                            help='Run name for Weights & Biases logger.')
         general.add_argument('--n_workers', type=int, default=4, 
                             help='Number of parallel threads for data loading.')
         general.add_argument('--seed', type=int, default=None,
