@@ -106,6 +106,7 @@ class Configuration(object):
                             help='Batch size for the training set.')
         data.add_argument('--bs_eval', type=int, default=16, 
                             help='Batch size for valid/test set.')
+        data.add_argument('--normalize', action='store_true', default=False)
         data.add_argument('--aug', type=str, nargs='*', default=[],
                             help='List of named augmentations to apply to training data.')
 

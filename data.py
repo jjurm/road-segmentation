@@ -55,9 +55,10 @@ class SatelliteData(torch.utils.data.Dataset):
         it['image'] = cv2.imread(self.fnames_im[item])
         it['image'] = cv2.cvtColor(it['image'], cv2.COLOR_BGR2RGB)
 
-        filepath = os.path.split(self.fnames_im[item])[0]
-        basename = '_'.join(filepath.split('_')[:-1]) 
-        it['image'] = F.normalize(stats[basename]['mean'], stats[basename]['std'])
+        if self.config.normalize:
+            filepath = os.path.split(self.fnames_im[item])[0]
+            basename = '_'.join(filepath.split('_')[:-1]) 
+            it['image'] = F.normalize(stats[basename]['mean'], stats[basename]['std'])
 
         if self.train:
             it['mask'] = cv2.imread(self.fnames_gt[item])
