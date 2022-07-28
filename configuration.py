@@ -93,8 +93,6 @@ class Configuration(object):
                              help='Check val every n train epochs')
         general.add_argument('--force_cpu', action='store_true', default=False,
                             help='Force training on CPU instead of GPU.')
-        general.add_argument('--load_model', type=str, default=None,
-                            help='Load model from given checkpoint.')
 
         # Data.
         data = parser.add_argument_group('Data')
@@ -115,7 +113,12 @@ class Configuration(object):
         model = parser.add_argument_group('Model')
         model.add_argument('--model', type=str, default='LinearConv', 
                             help='Defines the model to train on.')
-        model.add_argument('--pretrained', action='store_true', default=False)
+        model.add_argument('--load_model', type=str, default=None,
+                            help='Load model from given checkpoint.')
+        model.add_argument('--pretrained', action='store_true', default=False, 
+                            help='Use a pretrained model from an external library.')
+        model.add_argument('--freeze_epochs', type=int, default=0,
+                            help='Number of epochs to freeze if supported by model.')
         model.add_argument('--model_out', type=str, choices={'pixel', 'patch'}, default='pixel',
                             help='Output features of model. Some models might not support pixelwise.')
         model.add_argument('--loss_in', type=str, choices={'pixel', 'patch'}, default='patch',
@@ -256,7 +259,7 @@ def create_loss(config:Configuration):
     raise RuntimeError(f'Unkown loss name: {config.loss}')
 
 
-def create_optimizer(model:torch.nn.Module, config:Configuration):
+def create_optimizer(config:Configuration):
     '''
     This is a helper function that can be useful if you have optimizers that you want to
     choose from via the command line.
@@ -268,13 +271,13 @@ def create_optimizer(model:torch.nn.Module, config:Configuration):
         kwargs['weight_decay'] = config.wd
 
     if config.opt == 'adamw':
-        return torch.optim.AdamW(model.parameters(), **kwargs)
+        return torch.optim.AdamW, kwargs
 
     if config.opt == 'adam':
-        return torch.optim.Adam(model.parameters(), **kwargs)
+        return torch.optim.Adam, kwargs
 
     if config.opt == 'sgd':
-        return torch.optim.SGD(model.parameters(), **kwargs)
+        return torch.optim.SGD, kwargs
 
     raise RuntimeError(f'Unkown optimizer name: {config.opt}')
 

@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, OrderedDict
 
 import timm
 import torch
-from configuration import Configuration
+from configuration import Configuration, create_optimizer
 from timm.models.features import FeatureListNet
 from torch import nn
 
@@ -176,6 +176,21 @@ class Resnet(BaseModel):
         
         self.head = nn.Conv2d(self.out_channels, 1, 1)
 
+    def configure_optimizers(self):
+        params = list(self.head.parameters())
+        if self.decoder:
+            params += list(self.decoder.parameters())
+        t_opt, kwargs = create_optimizer(self.config)
+        return t_opt(params, **kwargs)
+
+    def on_train_epoch_start(self) -> None:
+        if self.current_epoch == self.config.freeze_epochs:
+            t_opt, kwargs = create_optimizer(self.config)
+            self.trainer.optimizers = [t_opt(self.parameters(), **kwargs)]
+            #self.optimizers().param_groups.clear() # remove all param_groups
+            #param_group = dict(params=self.parameters()) # add all parameters
+            #self.optimizers().add_param_group(param_group)
+        return 
 
     def forward(self, batch: torch.Tensor):
         n_samples, n_channels, in_size, in_size = batch.shape
