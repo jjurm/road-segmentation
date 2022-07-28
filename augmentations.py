@@ -13,6 +13,27 @@ def crop(size):
         A.CropNonEmptyMaskIfExists(height=size, width=size)
     ])
 
+def all_augs():
+    return A.Compose([
+        A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=30, val_shift_limit=0, p=0.8),
+        A.RandomBrightnessContrast(brightness_limit=20, contrast_limit=30, brightness_by_max=False, p=0.8),
+        A.GaussNoise(var_limit=(10, 50)),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.Transpose(p=0.5),
+        A.ShiftScaleRotate(shift_limit=0, scale_limit=(0.1, 0.1), rotate_limit=6, p=0.8),
+        A.Compose([ # Distortions
+            A.OneOf([
+                A.GridDistortion(num_steps=3, distort_limit=0.03, p=1),
+                A.OpticalDistortion(distort_limit=0.1, shift_limit=0.4, p=1),
+                A.ElasticTransform(alpha=10, sigma=20, alpha_affine=3, p=1),                 
+            ]),
+            A.CenterCrop(390, 390),
+            A.Resize(400, 400),
+        ], p=0.5)
+    ])
+
 
 def aug_with_crop(image_size = 256, crop_prob = 1):
     return A.Compose([
