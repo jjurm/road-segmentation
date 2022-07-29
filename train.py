@@ -46,8 +46,8 @@ def main(config:Configuration):
     ]
 
     ckpt_callbacks = [        
-        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor=None,
-                    filename='epoch={epoch}-step={step}-last', auto_insert_metric_name=False),
+        # pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor=None,
+        #             filename='epoch={epoch}-step={step}-last', auto_insert_metric_name=False),
 
         pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/loss', mode='min',
                     filename='epoch={epoch}-step={step}-val_loss={valid/loss:.3f}', auto_insert_metric_name=False),
@@ -55,8 +55,8 @@ def main(config:Configuration):
         pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/f1w', mode='max',
                     filename='epoch={epoch}-step={step}-val_f1w={valid/patch/f1w:.3f}', auto_insert_metric_name=False),
 
-        pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/accw', mode='max',
-                    filename='epoch={epoch}-step={step}-val_accw={valid/patch/accw:.3f}', auto_insert_metric_name=False),
+        # pl_callbacks.ModelCheckpoint(dirpath=log_dir, monitor='valid/patch/accw', mode='max',
+        #             filename='epoch={epoch}-step={step}-val_accw={valid/patch/accw:.3f}', auto_insert_metric_name=False),
     ]
 
     # Prepare Trainer
