@@ -324,6 +324,21 @@ def create_augmentation(config:Configuration):
             from augmentations import crop
             transforms.append(crop(256))
             continue
+
+        if aug_spec == 'pixelwise':
+            from augmentations import pixelwise
+            transforms.append(pixelwise())
+            continue
+
+        if aug_spec == 'affine':
+            from augmentations import affine
+            transforms.append(affine())
+            continue
+
+        if aug_spec == 'distortions':
+            from augmentations import distortions
+            transforms.append(distortions())
+            continue
         
         if aug_spec != '':  # fall through case
             raise RuntimeError(f'Unknown augmentations {aug_spec}')
