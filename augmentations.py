@@ -15,8 +15,8 @@ def crop(size):
 
 def pixelwise():
     return A.Compose([
-        A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=30, val_shift_limit=0, p=0.8),
-        A.RandomBrightnessContrast(brightness_limit=20, contrast_limit=30, brightness_by_max=False, p=0.8),
+        A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=40, val_shift_limit=0, p=0.8),
+        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.3, brightness_by_max=False, p=0.8),
         A.GaussNoise(var_limit=(10, 50)),
     ])
 
@@ -26,7 +26,7 @@ def affine():
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
         A.Transpose(p=0.5),
-        A.ShiftScaleRotate(shift_limit=0, scale_limit=(0.1, 0.1), rotate_limit=6, p=0.8),
+        A.ShiftScaleRotate(shift_limit=0, scale_limit=(0.1, 0.1), rotate_limit=10, p=0.8),
     ])
 
 def distortions():
