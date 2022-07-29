@@ -1,0 +1,8 @@
+{
+    "bs_train": 8,
+    "bs_eval": 8,
+    "model": "DINOViTs",
+    "model_out": "patch",
+    "loss_in": "patch",
+    "loss": "bce"
+  }
