@@ -40,12 +40,29 @@ def distortions():
             A.Resize(400, 400),
         ], p=0.5)
 
-
-def aug_with_crop(image_size = 256, crop_prob = 1):
+def all_augs():
     return A.Compose([
         pixelwise(),
         affine(),
         distortions(),
+    ])
+
+def aug_with_crop(image_size = 256, crop_prob = 1):
+    return A.Compose([
+        A.RandomCrop(width = image_size, height = image_size, p=crop_prob),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.Transpose(p=0.5),
+        A.ShiftScaleRotate(shift_limit=0.01, scale_limit=0.04, rotate_limit=45, p=1),
+        A.RandomBrightnessContrast(p=0.5),
+        A.RandomGamma(p=0.25),
+        A.Blur(p=0.01, blur_limit = 3),
+        A.OneOf([
+            A.ElasticTransform(p=0.5, alpha=50, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+            A.GridDistortion(p=0.5),
+            A.OpticalDistortion(p=1, distort_limit=0.6, shift_limit=0.4)                  
+        ], p=0.8)
     ], p = 1)
 
 def aug_without_crop():
