@@ -234,6 +234,9 @@ def create_model(config:Configuration):
         from models.ResNet import Resnet
         return Resnet(config)
 
+    if config.model[:7] == 'DINOViT':
+        from models.DINOViT import DINOViT
+        return DINOViT(config)
 
     raise RuntimeError(f'Unkown model name: {config.model}')
 
