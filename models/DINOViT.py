@@ -4,9 +4,11 @@ from typing import Any, Dict, Iterable, List, OrderedDict
 import timm
 import torch
 from configuration import Configuration, create_optimizer
+from configuration import CONSTANTS as C
 from timm.models.features import FeatureListNet
 from torch import nn
 from math import sqrt
+from torch.nn import functional as F
 
 from models.BaseModel import BaseModel
 
@@ -46,6 +48,7 @@ class DINOViT(BaseModel):
 
     def forward(self, batch: torch.Tensor):
         n_samples, n_channels, in_size, in_size = batch.shape
+        out_size = in_size // C.PATCH_SIZE 
 
         # adjust from here:
         # https://github.com/facebookresearch/dino/blob/cb711401860da580817918b9167ed73e3eef3dcf/vision_transformer.py#L209
@@ -53,13 +56,12 @@ class DINOViT(BaseModel):
         for blk in self.dino.blocks:
             x = blk(x)
         x = self.dino.norm(x)
-        x = x[:, 1:, :] # remove [CLS] token
+        x = x[:, 1:, :]                 # n_samples, n_blocks, n_channels => remove [CLS] token
+        x = x.transpose(1, 2)           # n_samples, n_channels, n_patches**2
+        x = F.normalize(x, p=2, dim=11) # n_samples, n_channels, n_patches**2
 
         # reshape batch sequence back to image embedding
-        n_samples, n_patches, n_channels = x.size()
-        out_size = int(sqrt(n_patches))
-        x = x.reshape([n_samples, out_size, out_size, n_channels])
-        batch = x.transpose(1, 3) 
+        x = x.reshape([n_samples, -1, out_size, out_size])
 
         batch = self.head(batch)
         return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
