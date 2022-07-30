@@ -20,7 +20,7 @@ class DINOViT(BaseModel):
 
         if config.model == 'DINOViTs':
             model_str = 'dino_vits16'
-        elif config.model == 'DINOViTs':
+        elif config.model == 'DINOViTb':
             model_str = 'dino_vitb16'
         else:
             raise RuntimeError(f'{config.model} is not supported, please try one of {__supported_models__}')
@@ -58,12 +58,12 @@ class DINOViT(BaseModel):
         x = self.dino.norm(x)
         x = x[:, 1:, :]                 # n_samples, n_blocks, n_channels => remove [CLS] token
         x = x.transpose(1, 2)           # n_samples, n_channels, n_patches**2
-        x = F.normalize(x, p=2, dim=11) # n_samples, n_channels, n_patches**2
+        x = F.normalize(x, p=2, dim=1)  # n_samples, n_channels, n_patches**2
 
         # reshape batch sequence back to image embedding
         x = x.reshape([n_samples, -1, out_size, out_size])
 
-        batch = self.head(batch)
+        batch = self.head(x)
         return batch #batch.reshape(n_samples, 1, self.out_size, self.out_size)
 
     
