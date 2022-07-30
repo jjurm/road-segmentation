@@ -72,7 +72,8 @@ class SatelliteData(torch.utils.data.Dataset):
             filepath = os.path.split(self.fnames_im[item])[-1]
             basename = '_'.join(filepath.split('_')[:-1]) 
             it['image'] = F.normalize(it['image'], stats[basename]['mean'], stats[basename]['std'])
-            it['mask'] = F.to_float(it['mask'])
+            if 'mask' in it.keys():
+                it['mask'] = F.to_float(it['mask'])    
         else:
             it = self.to_float_dual(**it)
 
