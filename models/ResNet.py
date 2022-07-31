@@ -154,17 +154,19 @@ class FeatureListDecoder(nn.ModuleDict):
         # TODO: is this memory optimal? are the unbound tensors deleted?
         return x
 
-
+__supported_models__ = ['Resnet18d', 'Resnet50d']
 class Resnet(BaseModel):
     def __init__(self, config: Configuration):
         super().__init__(config)
 
-        name = config.model.lower()
-        if name[-1] != 'd':
-            print('Warning: Currently only Resnets with deep stems are supported')
+        if config.model not in __supported_models__:
+            raise RuntimeError(f'{config.model} is not supported, please try one of {__supported_models__}.')
+
+        if config.model == 'Resnet50d' and config.model_out == 'pixel':
+            raise RuntimeError('Pixel-wise ourputs are currently not supported for Resnet50d.')
 
         ## create encoder
-        #self.encoder = timm.create_model(name, features_only=True, pretrained=config.pretrained)
+        name = config.model.lower()
         self.encoder = FeatureListEncoder(name, config.pretrained, stem_reduce=False)
         self.out_channels = self.encoder.channels[-1]
 
