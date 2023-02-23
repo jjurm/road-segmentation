@@ -1,4 +1,27 @@
-# cil-project
+# Road Segmentation
+
+This project is done as part of the [Computational Intelligence Lab](https://www.vorlesungen.ethz.ch/Vorlesungsverzeichnis/lerneinheit.view?semkez=2022S&ansicht=KATALOGDATEN&lerneinheitId=157374&lang=en) course offered at the Computer Science department of ETH Zurich.
+
+See the [Kaggle competition](https://www.kaggle.com/competitions/cil-road-segmentation-2022/leaderboard) where our team was ranked top 5.
+
+<img src="https://github.com/jjurm/road-segmentation/raw/master/assets/unet-eval.png" width="600" height="190" />
+
+## Report
+
+Read the associated *report* below, or see the [report repository](https://github.com/jjurm/road-segmentation-report).
+
+<a href="https://github.com/jjurm/road-segmentation/blob/master/road-segmentation.pdf" target="_blank"><img src="https://github.com/jjurm/road-segmentation/raw/master/assets/road-segmentation-01.png" width="300" height="424" /></a>
+
+## Team
+
+- **Felix Sarnthein** ([@safelix](https://github.com/safelix))
+- **Rares Constantin** ([@raresionut1](https://github.com/raresionut1))
+- **Juraj Micko** ([@jjurm](https://github.com/jjurm))
+- **Aashish Kumar Singh** ([@aashishksingh](https://github.com/aashishksingh))
+
+## Abstract
+
+*The task of image segmentation has been widely explored, and a range of algorithms find a wide domain of usage nowadays. Satellites produce a massive amount of high-quality images across all landscapes and potentially enable machine map generation. However, human labeled data is usually expensive to produce and labels might be noisy. Road Segmentation is the problem of dividing each image into regions that contain roads and regions that do not. We explore patch-wise and pixel-wise approaches to road segmentation in a small dataset with noisy labels.*
 
 ## Baseline
 
