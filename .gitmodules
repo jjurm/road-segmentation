@@ -1,6 +1,6 @@
-[submodule "road-segmentation-report"]
-	path = road-segmentation-report
-	url = git@github.com:jjurm/road-segmentation-report.git
 [submodule "report"]
 	path = report
 	url = git@github.com:jjurm/road-segmentation-report.git
+[submodule "data"]
+	path = data
+	url = git@github.com:jjurm/road-segmentation-data.git
